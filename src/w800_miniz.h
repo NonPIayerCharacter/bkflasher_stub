@@ -3,14 +3,14 @@
 
 #include <stdint.h>
 
-typedef int (*w800_miniz_get_byte_fn)(void *ctx, uint8_t *value);
-typedef int (*w800_miniz_put_byte_fn)(void *ctx, uint8_t value);
+typedef uint32_t (*w800_miniz_get_buffer_fn)(void *ctx, uint8_t *buffer, uint32_t capacity);
+typedef int (*w800_miniz_put_buffer_fn)(void *ctx, const uint8_t *buffer, uint32_t len);
 
-int w800_miniz_inflate_raw(w800_miniz_get_byte_fn get_byte, void *get_ctx,
-                           w800_miniz_put_byte_fn put_byte, void *put_ctx,
+int w800_miniz_inflate_raw(w800_miniz_get_buffer_fn get_buffer, void *get_ctx,
+                           w800_miniz_put_buffer_fn put_buffer, void *put_ctx,
                            uint32_t expected_len);
 
 int w800_miniz_deflate_raw(const volatile uint8_t *src, uint32_t len, uint8_t level,
-                           w800_miniz_put_byte_fn put_byte, void *put_ctx);
+                           w800_miniz_put_buffer_fn put_buffer, void *put_ctx);
 
 #endif

@@ -19,19 +19,23 @@ static uint8_t source[TEST_CAPACITY];
 static uint8_t compressed[TEST_CAPACITY * 2U];
 static uint8_t restored[TEST_CAPACITY];
 
-static int buffer_get(void *ctx, uint8_t *value)
+static uint32_t buffer_get(void *ctx, uint8_t *data, uint32_t capacity)
 {
     buffer_t *buffer = (buffer_t *)ctx;
-    if (buffer->pos >= buffer->size) return 0;
-    *value = buffer->data[buffer->pos++];
-    return 1;
+    uint32_t len = buffer->size - buffer->pos;
+    if (len > capacity) len = capacity;
+    if (!len) return 0U;
+    memcpy(data, &buffer->data[buffer->pos], len);
+    buffer->pos += len;
+    return len;
 }
 
-static int buffer_put(void *ctx, uint8_t value)
+static int buffer_put(void *ctx, const uint8_t *data, uint32_t len)
 {
     buffer_t *buffer = (buffer_t *)ctx;
-    if (buffer->size >= buffer->capacity) return 0;
-    buffer->data[buffer->size++] = value;
+    if (len > buffer->capacity - buffer->size) return 0;
+    memcpy(&buffer->data[buffer->size], data, len);
+    buffer->size += len;
     return 1;
 }
 

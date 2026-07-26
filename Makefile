@@ -56,5 +56,7 @@ clean:
 host-test: | build
 	$(HOST_CC) -O2 -std=c99 -Wall -Wextra -Isrc -Ithird_party/miniz $(MINIZ_FLAGS) tools/test_w800_deflate.c src/w800_miniz.c third_party/miniz/miniz.c third_party/miniz/miniz_tdef.c third_party/miniz/miniz_tinfl.c -lz -o build/test_w800_deflate
 	build/test_w800_deflate
+	$(HOST_CC) -O2 -std=c99 -Wall -Wextra -fno-builtin tools/test_w800_libc.c src/w800_libc.c -o build/test_w800_libc
+	build/test_w800_libc
 
 .PHONY: all clean host-test

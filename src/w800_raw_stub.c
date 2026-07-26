@@ -1,8 +1,11 @@
 /* W800/W806 RAM flasher stub using the common OBK custom-stub protocol. */
 #include <stdint.h>
 #include <stddef.h>
+#include <string.h>
 
 #include "w800_miniz.h"
+
+typedef uint32_t alias_u32 __attribute__((may_alias));
 
 #define APB_CLK 40000000U
 
@@ -68,6 +71,9 @@
 #define FLASH_PAGE_SIZE            0x100U
 #define FLASH_WRITE_MIN_OFFSET     0x2000U
 #define FT_PARAM_SIZE              132U
+#define W800_ROM_SIZE              0x5000U
+#define W800_RAM_BASE              0x20000000U
+#define W800_RAM_SIZE              0x48000U
 #define FT_PARAM_RUNTIME_OFFSET    0x1000U
 #define FT_PARAM_MAGIC             0xA0FFFF9FU
 
@@ -97,7 +103,7 @@
 
 static uint8_t cmd_buf[4096] __attribute__((aligned(4)));
 static uint8_t crc_buf[4096] __attribute__((aligned(4)));
-static uint8_t xmodem_packet[3 + 1024 + 2];
+static uint8_t xmodem_packet[1 + 3 + 1024 + 2] __attribute__((aligned(4)));
 static uint32_t w800_flash_jedec_id_cached;
 static uint32_t w800_flash_size_cached;
 static int prompt_enabled = 1;
@@ -258,12 +264,9 @@ static void w800_flash_erase_block(uint32_t off)
 
 static void w800_flash_program_page(uint32_t off, const uint8_t *data)
 {
-    for (uint32_t i = 0U; i < FLASH_PAGE_SIZE; i += 4U) {
-        uint32_t word = ((uint32_t)data[i]) |
-                        ((uint32_t)data[i + 1U] << 8) |
-                        ((uint32_t)data[i + 2U] << 16) |
-                        ((uint32_t)data[i + 3U] << 24);
-        REG32(W800_RSA_SCRATCH_BASE + i) = word;
+    const alias_u32 *words = (const alias_u32 *)(const void *)data;
+    for (uint32_t i = 0U; i < FLASH_PAGE_SIZE / 4U; i++) {
+        REG32(W800_RSA_SCRATCH_BASE + i * 4U) = words[i];
     }
     w800_flash_write_enable();
     REG32(W800_FLASH_CMD_ADDR) = 0x80FF9002U;
@@ -273,27 +276,64 @@ static void w800_flash_program_page(uint32_t off, const uint8_t *data)
 
 static int w800_flash_range_is_erased(uint32_t off, uint32_t len)
 {
-    const volatile uint8_t *p = (const volatile uint8_t *)(uintptr_t)(FLASH_BASE + off);
-    for (uint32_t i = 0U; i < len; i++) {
-        if (p[i] != 0xFFU) return 0;
+    const volatile uint8_t *flash = (const volatile uint8_t *)(uintptr_t)(FLASH_BASE + off);
+    const volatile uint32_t *flash32 =
+        (const volatile uint32_t *)(const volatile void *)flash;
+    while (len >= 16U) {
+        if (flash32[0] != UINT32_MAX || flash32[1] != UINT32_MAX ||
+            flash32[2] != UINT32_MAX || flash32[3] != UINT32_MAX) return 0;
+        flash32 += 4;
+        len -= 16U;
     }
+    while (len >= 4U) {
+        if (*flash32++ != UINT32_MAX) return 0;
+        len -= 4U;
+    }
+    flash = (const volatile uint8_t *)(const volatile void *)flash32;
+    while (len--) if (*flash++ != 0xFFU) return 0;
     return 1;
 }
 
 static int w800_flash_range_matches(uint32_t off, const uint8_t *data, uint32_t len)
 {
-    const volatile uint8_t *p = (const volatile uint8_t *)(uintptr_t)(FLASH_BASE + off);
-    for (uint32_t i = 0U; i < len; i++) {
-        if (p[i] != data[i]) return 0;
+    const volatile uint8_t *flash = (const volatile uint8_t *)(uintptr_t)(FLASH_BASE + off);
+    if ((((uintptr_t)flash | (uintptr_t)data) & 3U) == 0U) {
+        const volatile uint32_t *flash32 =
+            (const volatile uint32_t *)(const volatile void *)flash;
+        const alias_u32 *data32 = (const alias_u32 *)(const void *)data;
+        while (len >= 16U) {
+            if (flash32[0] != data32[0] || flash32[1] != data32[1] ||
+                flash32[2] != data32[2] || flash32[3] != data32[3]) return 0;
+            flash32 += 4;
+            data32 += 4;
+            len -= 16U;
+        }
+        while (len >= 4U) {
+            if (*flash32++ != *data32++) return 0;
+            len -= 4U;
+        }
+        flash = (const volatile uint8_t *)(const volatile void *)flash32;
+        data = (const uint8_t *)(const void *)data32;
     }
+    while (len--) if (*flash++ != *data++) return 0;
     return 1;
 }
 
 static int buffer_is_erased(const uint8_t *data, uint32_t len)
 {
-    for (uint32_t i = 0U; i < len; i++) {
-        if (data[i] != 0xFFU) return 0;
+    const alias_u32 *data32 = (const alias_u32 *)(const void *)data;
+    while (len >= 16U) {
+        if (data32[0] != UINT32_MAX || data32[1] != UINT32_MAX ||
+            data32[2] != UINT32_MAX || data32[3] != UINT32_MAX) return 0;
+        data32 += 4;
+        len -= 16U;
     }
+    while (len >= 4U) {
+        if (*data32++ != UINT32_MAX) return 0;
+        len -= 4U;
+    }
+    data = (const uint8_t *)(const void *)data32;
+    while (len--) if (*data++ != 0xFFU) return 0;
     return 1;
 }
 
@@ -349,35 +389,6 @@ static uint32_t reverse_u32(uint32_t value)
     return (value << 16) | (value >> 16);
 }
 
-static void w800_copy_from_mapped_memory(uint8_t *dest, uint32_t addr, uint32_t len)
-{
-    const volatile uint8_t *source = (const volatile uint8_t *)(uintptr_t)addr;
-    while (len && (((uintptr_t)dest | (uintptr_t)source) & 3U)) {
-        *dest++ = *source++;
-        len--;
-    }
-
-    uint32_t *dest32 = (uint32_t *)(void *)dest;
-    const volatile uint32_t *source32 = (const volatile uint32_t *)(const volatile void *)source;
-    while (len >= 16U) {
-        dest32[0] = source32[0];
-        dest32[1] = source32[1];
-        dest32[2] = source32[2];
-        dest32[3] = source32[3];
-        dest32 += 4;
-        source32 += 4;
-        len -= 16U;
-    }
-    while (len >= 4U) {
-        *dest32++ = *source32++;
-        len -= 4U;
-    }
-
-    dest = (uint8_t *)(void *)dest32;
-    source = (const volatile uint8_t *)(const volatile void *)source32;
-    while (len--) *dest++ = *source++;
-}
-
 static void w800_crc32_hardware_start(const uint8_t *source, uint32_t len, uint32_t state)
 {
     REG32(HR_CRYPTO_SEC_CTRL) = 0x4U;
@@ -410,14 +421,14 @@ static int w800_crc32_memory_hardware(uint32_t addr, uint32_t len, uint32_t *res
     uint32_t chunk = len > sizeof(cmd_buf) ? sizeof(cmd_buf) : len;
 
     /* The crypto DMA cannot consume the CPU QFLASH mapping directly. */
-    w800_copy_from_mapped_memory(current, addr, chunk);
+    memcpy(current, (const void *)(uintptr_t)addr, chunk);
     while (chunk) {
         w800_crc32_hardware_start(current, chunk, state);
         addr += chunk;
         len -= chunk;
 
         uint32_t next_chunk = len > sizeof(cmd_buf) ? sizeof(cmd_buf) : len;
-        if (next_chunk) w800_copy_from_mapped_memory(next, addr, next_chunk);
+        if (next_chunk) memcpy(next, (const void *)(uintptr_t)addr, next_chunk);
         if (!w800_crc32_hardware_wait(&state)) return 0;
 
         uint8_t *swap = current;
@@ -463,7 +474,7 @@ static int w800_read_factory_mac_at(uint32_t flash_off, uint8_t mac[6])
 {
     const volatile uint8_t *param = (const volatile uint8_t *)(uintptr_t)(FLASH_BASE + flash_off);
     uint8_t bytes[FT_PARAM_SIZE];
-    for (uint32_t i = 0U; i < sizeof(bytes); i++) bytes[i] = param[i];
+    memcpy(bytes, (const void *)param, sizeof(bytes));
     if (load_le32(bytes) != FT_PARAM_MAGIC) return 0;
 
     uint32_t crc = 0xFFFFFFFFU;
@@ -491,6 +502,20 @@ static int range_does_not_wrap(uint32_t addr, uint32_t len)
     return len != 0U && addr <= (UINT32_MAX - (len - 1U));
 }
 
+static int range_is_within(uint32_t addr, uint32_t len, uint32_t base, uint32_t size)
+{
+    return len && addr >= base && addr - base < size &&
+        len <= size - (addr - base);
+}
+
+static int w800_range_is_bulk_memory(uint32_t addr, uint32_t len)
+{
+    if (range_is_within(addr, len, 0U, W800_ROM_SIZE)) return 1;
+    if (range_is_within(addr, len, W800_RAM_BASE, W800_RAM_SIZE)) return 1;
+    return w800_flash_size_cached &&
+        range_is_within(addr, len, FLASH_BASE, w800_flash_size_cached);
+}
+
 static void obk_send_flash_crc32(uint8_t type, uint32_t off, uint32_t len)
 {
     if (!range_does_not_wrap(off, len) || !w800_flash_size_cached ||
@@ -514,6 +539,8 @@ static void xmodem_send_memory(uint32_t addr, uint32_t len)
     int use_1k = 1;
     uint8_t block = 1;
 
+    /* Offset the TX frame so its payload is 32-bit aligned; RX data uses index 0. */
+    uint8_t *packet = &xmodem_packet[1];
     /* Wait for receiver's C or NAK. */
     int receiver_ready = 0;
     for (uint32_t tries = 0U; tries < 100U; tries++) {
@@ -526,30 +553,34 @@ static void xmodem_send_memory(uint32_t addr, uint32_t len)
     if (!receiver_ready) { uart0_putc(CAN); uart0_putc(CAN); return; }
 
     uint32_t off = 0U;
+    int use_bulk_copy = w800_range_is_bulk_memory(addr, len);
     while (off < len) {
         uint32_t block_size = use_1k ? 1024U : 128U;
         uint32_t chunk = (len - off > block_size) ? block_size : (len - off);
-        xmodem_packet[0] = use_1k ? STX : SOH;
-        xmodem_packet[1] = block;
-        xmodem_packet[2] = (uint8_t)~block;
-        const volatile uint8_t *src = (const volatile uint8_t *)(uintptr_t)(addr + off);
-        for (uint32_t i = 0; i < block_size; i++) {
-            xmodem_packet[3 + i] = (i < chunk) ? src[i] : 0xFFU;
+        packet[0] = use_1k ? STX : SOH;
+        packet[1] = block;
+        packet[2] = (uint8_t)~block;
+        if (use_bulk_copy) {
+            memcpy(&packet[3], (const void *)(uintptr_t)(addr + off), chunk);
+        } else {
+            const volatile uint8_t *src = (const volatile uint8_t *)(uintptr_t)(addr + off);
+            for (uint32_t i = 0; i < chunk; i++) packet[3 + i] = src[i];
         }
+        memset(&packet[3 + chunk], 0xFF, block_size - chunk);
         uint32_t pkt_len = 3U + block_size;
         if (use_crc) {
-            uint16_t crc = crc16_xmodem(&xmodem_packet[3], block_size);
-            xmodem_packet[pkt_len++] = (uint8_t)(crc >> 8);
-            xmodem_packet[pkt_len++] = (uint8_t)(crc & 0xFFU);
+            uint16_t crc = crc16_xmodem(&packet[3], block_size);
+            packet[pkt_len++] = (uint8_t)(crc >> 8);
+            packet[pkt_len++] = (uint8_t)(crc & 0xFFU);
         } else {
             uint8_t sum = 0;
-            for (uint32_t i = 0; i < block_size; i++) sum = (uint8_t)(sum + xmodem_packet[3 + i]);
-            xmodem_packet[pkt_len++] = sum;
+            for (uint32_t i = 0; i < block_size; i++) sum = (uint8_t)(sum + packet[3 + i]);
+            packet[pkt_len++] = sum;
         }
 
         int sent = 0;
         for (uint32_t retry = 0U; retry < XMODEM_MAX_RETRIES; retry++) {
-            uart0_write(xmodem_packet, pkt_len);
+            uart0_write(packet, pkt_len);
             if (uart0_getc_timeout(&resp, XMODEM_RESPONSE_WAIT_LOOPS)) {
                 if (resp == ACK) { sent = 1; break; }
                 if (resp == CAN) return;
@@ -580,23 +611,24 @@ typedef struct {
 static int xmodem_tx_send_packet(xmodem_tx_stream_t *stream)
 {
     uint8_t resp;
+    uint8_t *packet = &xmodem_packet[1];
     uint32_t block_size = stream->use_1k ? 1024U : 128U;
-    for (uint32_t i = stream->data_len; i < block_size; i++) xmodem_packet[3U + i] = 0xFFU;
-    xmodem_packet[0] = stream->use_1k ? STX : SOH;
-    xmodem_packet[1] = stream->block;
-    xmodem_packet[2] = (uint8_t)~stream->block;
+    memset(&packet[3U + stream->data_len], 0xFF, block_size - stream->data_len);
+    packet[0] = stream->use_1k ? STX : SOH;
+    packet[1] = stream->block;
+    packet[2] = (uint8_t)~stream->block;
     uint32_t packet_len = 3U + block_size;
     if (stream->use_crc) {
-        uint16_t crc = crc16_xmodem(&xmodem_packet[3], block_size);
-        xmodem_packet[packet_len++] = (uint8_t)(crc >> 8);
-        xmodem_packet[packet_len++] = (uint8_t)crc;
+        uint16_t crc = crc16_xmodem(&packet[3], block_size);
+        packet[packet_len++] = (uint8_t)(crc >> 8);
+        packet[packet_len++] = (uint8_t)crc;
     } else {
         uint8_t sum = 0U;
-        for (uint32_t i = 0U; i < block_size; i++) sum = (uint8_t)(sum + xmodem_packet[3U + i]);
-        xmodem_packet[packet_len++] = sum;
+        for (uint32_t i = 0U; i < block_size; i++) sum = (uint8_t)(sum + packet[3U + i]);
+        packet[packet_len++] = sum;
     }
     for (uint32_t retry = 0U; retry < XMODEM_MAX_RETRIES; retry++) {
-        uart0_write(xmodem_packet, packet_len);
+        uart0_write(packet, packet_len);
         if (uart0_getc_timeout(&resp, XMODEM_RESPONSE_WAIT_LOOPS)) {
             if (resp == ACK) {
                 stream->block++;
@@ -637,13 +669,22 @@ static int xmodem_tx_start(xmodem_tx_stream_t *stream)
     return 0;
 }
 
-static int xmodem_tx_put_byte(void *ctx, uint8_t value)
+static int xmodem_tx_put_buffer(void *ctx, const uint8_t *buffer, uint32_t len)
 {
     xmodem_tx_stream_t *stream = (xmodem_tx_stream_t *)ctx;
     if (stream->failed) return 0;
-    xmodem_packet[3U + stream->data_len++] = value;
-    uint32_t block_size = stream->use_1k ? 1024U : 128U;
-    return stream->data_len < block_size || xmodem_tx_send_packet(stream);
+
+    while (len) {
+        uint32_t block_size = stream->use_1k ? 1024U : 128U;
+        uint32_t chunk = block_size - stream->data_len;
+        if (chunk > len) chunk = len;
+        memcpy(&xmodem_packet[4U + stream->data_len], buffer, chunk);
+        stream->data_len += chunk;
+        buffer += chunk;
+        len -= chunk;
+        if (stream->data_len == block_size && !xmodem_tx_send_packet(stream)) return 0;
+    }
+    return 1;
 }
 
 static int xmodem_tx_finish(xmodem_tx_stream_t *stream)
@@ -665,7 +706,7 @@ static int xmodem_send_compressed_memory(uint32_t addr, uint32_t len, uint8_t le
     xmodem_tx_stream_t stream;
     if (!xmodem_tx_start(&stream)) return 0;
     if (!w800_miniz_deflate_raw((const volatile uint8_t *)(uintptr_t)addr, len, level,
-                                xmodem_tx_put_byte, &stream)) {
+                                xmodem_tx_put_buffer, &stream)) {
         if (!stream.failed) {
             uart0_putc(CAN);
             uart0_putc(CAN);
@@ -743,13 +784,16 @@ fail:
     return 0;
 }
 
-static int xmodem_rx_get_byte(void *ctx, uint8_t *value)
+static uint32_t xmodem_rx_get_buffer(void *ctx, uint8_t *buffer, uint32_t capacity)
 {
     xmodem_rx_stream_t *stream = (xmodem_rx_stream_t *)ctx;
     if (stream->failed) return 0;
     if (stream->data_pos == stream->data_len && !xmodem_rx_next_packet(stream)) return 0;
-    *value = xmodem_packet[stream->data_pos++];
-    return 1;
+    uint32_t chunk = stream->data_len - stream->data_pos;
+    if (chunk > capacity) chunk = capacity;
+    memcpy(buffer, &xmodem_packet[stream->data_pos], chunk);
+    stream->data_pos += chunk;
+    return chunk;
 }
 
 static int xmodem_rx_finish(xmodem_rx_stream_t *stream)
@@ -782,40 +826,44 @@ typedef struct {
 static int inflate_flash_flush(inflate_flash_t *flash)
 {
     if (!flash->page_len) return 1;
-    int all_erased = 1;
-    for (uint32_t i = 0U; i < flash->page_len; i++) {
-        if (flash->page[i] != 0xFFU) {
-            all_erased = 0;
-            break;
-        }
-    }
-    if (all_erased) {
+    if (buffer_is_erased(flash->page, flash->page_len)) {
         flash->page_len = 0U;
         return 1;
     }
-    for (uint32_t i = flash->page_len; i < FLASH_PAGE_SIZE; i++) flash->page[i] = 0xFFU;
+    memset(&flash->page[flash->page_len], 0xFF, FLASH_PAGE_SIZE - flash->page_len);
     w800_flash_program_page(flash->page_start, flash->page);
     if (!w800_flash_range_matches(flash->page_start, flash->page, flash->page_len)) return 0;
     flash->page_len = 0U;
     return 1;
 }
 
-static int inflate_flash_put_byte(void *ctx, uint8_t value)
+static int inflate_flash_put_buffer(void *ctx, const uint8_t *buffer, uint32_t len)
 {
     inflate_flash_t *flash = (inflate_flash_t *)ctx;
-    if (flash->written >= flash->expected_len) return 0;
-    if (!flash->page_len) {
-        flash->page_start = flash->off + flash->written;
-        if ((flash->page_start & (FLASH_SECTOR_SIZE - 1U)) == 0U) {
-            if (!w800_flash_range_is_erased(flash->page_start, FLASH_SECTOR_SIZE)) {
-                w800_flash_erase_sector(flash->page_start);
-                if (!w800_flash_range_is_erased(flash->page_start, FLASH_SECTOR_SIZE)) return 0;
+    if (len > flash->expected_len - flash->written) return 0;
+
+    while (len) {
+        if (!flash->page_len) {
+            flash->page_start = flash->off + flash->written;
+            if ((flash->page_start & (FLASH_SECTOR_SIZE - 1U)) == 0U) {
+                if (!w800_flash_range_is_erased(flash->page_start, FLASH_SECTOR_SIZE)) {
+                    w800_flash_erase_sector(flash->page_start);
+                    if (!w800_flash_range_is_erased(
+                            flash->page_start, FLASH_SECTOR_SIZE)) return 0;
+                }
             }
         }
+
+        uint32_t chunk = FLASH_PAGE_SIZE - flash->page_len;
+        if (chunk > len) chunk = len;
+        memcpy(&flash->page[flash->page_len], buffer, chunk);
+        flash->page_len += chunk;
+        flash->written += chunk;
+        buffer += chunk;
+        len -= chunk;
+        if (flash->page_len == FLASH_PAGE_SIZE && !inflate_flash_flush(flash)) return 0;
     }
-    flash->page[flash->page_len++] = value;
-    flash->written++;
-    return flash->page_len < FLASH_PAGE_SIZE || inflate_flash_flush(flash);
+    return 1;
 }
 
 static int xmodem_receive_compressed_flash(uint32_t off, uint32_t len)
@@ -827,7 +875,8 @@ static int xmodem_receive_compressed_flash(uint32_t off, uint32_t len)
     flash.written = 0U;
     flash.page_start = 0U;
     flash.page_len = 0U;
-    if (!w800_miniz_inflate_raw(xmodem_rx_get_byte, &stream, inflate_flash_put_byte, &flash, len) ||
+    if (!w800_miniz_inflate_raw(xmodem_rx_get_buffer, &stream,
+                                inflate_flash_put_buffer, &flash, len) ||
         !inflate_flash_flush(&flash) || flash.written != len) {
         if (!stream.failed) {
             uart0_putc(CAN);
@@ -905,7 +954,8 @@ static int xmodem_receive_flash(uint32_t off, uint32_t len)
                     uint32_t current_off = off + written + page_off;
                     uint32_t page_len = chunk - page_off;
                     if (page_len > FLASH_PAGE_SIZE) page_len = FLASH_PAGE_SIZE;
-                    for (uint32_t i = page_len; i < FLASH_PAGE_SIZE; i++) xmodem_packet[page_off + i] = 0xFFU;
+                    memset(&xmodem_packet[page_off + page_len], 0xFF,
+                           FLASH_PAGE_SIZE - page_len);
                     if (!buffer_is_erased(&xmodem_packet[page_off], page_len)) {
                         w800_flash_program_page(current_off, &xmodem_packet[page_off]);
                         if (!w800_flash_range_matches(current_off, &xmodem_packet[page_off], page_len)) {
