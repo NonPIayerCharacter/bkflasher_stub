@@ -348,14 +348,42 @@ static uint32_t reverse_u32(uint32_t value)
     return (value << 16) | (value >> 16);
 }
 
+static void w800_copy_from_mapped_memory(uint8_t *dest, uint32_t addr, uint32_t len)
+{
+    const volatile uint8_t *source = (const volatile uint8_t *)(uintptr_t)addr;
+    while (len && (((uintptr_t)dest | (uintptr_t)source) & 3U)) {
+        *dest++ = *source++;
+        len--;
+    }
+
+    uint32_t *dest32 = (uint32_t *)(void *)dest;
+    const volatile uint32_t *source32 = (const volatile uint32_t *)(const volatile void *)source;
+    while (len >= 16U) {
+        dest32[0] = source32[0];
+        dest32[1] = source32[1];
+        dest32[2] = source32[2];
+        dest32[3] = source32[3];
+        dest32 += 4;
+        source32 += 4;
+        len -= 16U;
+    }
+    while (len >= 4U) {
+        *dest32++ = *source32++;
+        len -= 4U;
+    }
+
+    dest = (uint8_t *)(void *)dest32;
+    source = (const volatile uint8_t *)(const volatile void *)source32;
+    while (len--) *dest++ = *source++;
+}
+
 static int w800_crc32_memory_hardware(uint32_t addr, uint32_t len, uint32_t *result)
 {
     uint32_t state = 0xFFFFFFFFU;
     while (len) {
         uint32_t chunk = len > sizeof(cmd_buf) ? sizeof(cmd_buf) : len;
-        const volatile uint8_t *source = (const volatile uint8_t *)(uintptr_t)addr;
         /* The crypto DMA cannot consume the CPU QFLASH mapping directly. */
-        for (uint32_t i = 0; i < chunk; i++) cmd_buf[i] = source[i];
+        w800_copy_from_mapped_memory(cmd_buf, addr, chunk);
         REG32(HR_CRYPTO_SEC_CTRL) = 0x4U;
         REG32(HR_CRYPTO_SEC_STS) = CRYPTO_COMPLETE_STATUS;
         REG32(HR_CRYPTO_SEC_CFG) = CRYPTO_CRC32_CONFIG | chunk;
