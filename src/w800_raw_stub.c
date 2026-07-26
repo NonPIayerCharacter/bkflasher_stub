@@ -95,7 +95,8 @@
 #define XMODEM_RESPONSE_WAIT_LOOPS 10000000U
 #define XMODEM_MAX_RETRIES         30U
 
-static uint8_t cmd_buf[4096];
+static uint8_t cmd_buf[4096] __attribute__((aligned(4)));
+static uint8_t crc_buf[4096] __attribute__((aligned(4)));
 static uint8_t xmodem_packet[3 + 1024 + 2];
 static uint32_t w800_flash_jedec_id_cached;
 static uint32_t w800_flash_size_cached;
@@ -377,31 +378,52 @@ static void w800_copy_from_mapped_memory(uint8_t *dest, uint32_t addr, uint32_t 
     while (len--) *dest++ = *source++;
 }
 
+static void w800_crc32_hardware_start(const uint8_t *source, uint32_t len, uint32_t state)
+{
+    REG32(HR_CRYPTO_SEC_CTRL) = 0x4U;
+    REG32(HR_CRYPTO_SEC_STS) = CRYPTO_COMPLETE_STATUS;
+    REG32(HR_CRYPTO_SEC_CFG) = CRYPTO_CRC32_CONFIG | len;
+    REG32(HR_CRYPTO_CRC_KEY) = reverse_u32(state);
+    REG32(HR_CRYPTO_SRC_ADDR) = (uint32_t)(uintptr_t)source;
+    REG32(HR_CRYPTO_SEC_CTRL) = 0x1U;
+}
+
+static int w800_crc32_hardware_wait(uint32_t *state)
+{
+    uint32_t timeout = CRYPTO_WAIT_LOOPS;
+    while (!(REG32(HR_CRYPTO_SEC_STS) & CRYPTO_COMPLETE_STATUS) && timeout) timeout--;
+    if (!timeout) {
+        REG32(HR_CRYPTO_SEC_CTRL) = 0x4U;
+        return 0;
+    }
+    REG32(HR_CRYPTO_SEC_STS) = CRYPTO_COMPLETE_STATUS;
+    *state = REG32(HR_CRYPTO_CRC_RESULT);
+    REG32(HR_CRYPTO_SEC_CTRL) = 0x4U;
+    return 1;
+}
+
 static int w800_crc32_memory_hardware(uint32_t addr, uint32_t len, uint32_t *result)
 {
     uint32_t state = 0xFFFFFFFFU;
-    while (len) {
-        uint32_t chunk = len > sizeof(cmd_buf) ? sizeof(cmd_buf) : len;
-        /* The crypto DMA cannot consume the CPU QFLASH mapping directly. */
-        w800_copy_from_mapped_memory(cmd_buf, addr, chunk);
-        REG32(HR_CRYPTO_SEC_CTRL) = 0x4U;
-        REG32(HR_CRYPTO_SEC_STS) = CRYPTO_COMPLETE_STATUS;
-        REG32(HR_CRYPTO_SEC_CFG) = CRYPTO_CRC32_CONFIG | chunk;
-        REG32(HR_CRYPTO_CRC_KEY) = reverse_u32(state);
-        REG32(HR_CRYPTO_SRC_ADDR) = (uint32_t)(uintptr_t)cmd_buf;
-        REG32(HR_CRYPTO_SEC_CTRL) = 0x1U;
+    uint8_t *current = cmd_buf;
+    uint8_t *next = crc_buf;
+    uint32_t chunk = len > sizeof(cmd_buf) ? sizeof(cmd_buf) : len;
 
-        uint32_t timeout = CRYPTO_WAIT_LOOPS;
-        while (!(REG32(HR_CRYPTO_SEC_STS) & CRYPTO_COMPLETE_STATUS) && timeout) timeout--;
-        if (!timeout) {
-            REG32(HR_CRYPTO_SEC_CTRL) = 0x4U;
-            return 0;
-        }
-        REG32(HR_CRYPTO_SEC_STS) = CRYPTO_COMPLETE_STATUS;
-        state = REG32(HR_CRYPTO_CRC_RESULT);
-        REG32(HR_CRYPTO_SEC_CTRL) = 0x4U;
+    /* The crypto DMA cannot consume the CPU QFLASH mapping directly. */
+    w800_copy_from_mapped_memory(current, addr, chunk);
+    while (chunk) {
+        w800_crc32_hardware_start(current, chunk, state);
         addr += chunk;
         len -= chunk;
+
+        uint32_t next_chunk = len > sizeof(cmd_buf) ? sizeof(cmd_buf) : len;
+        if (next_chunk) w800_copy_from_mapped_memory(next, addr, next_chunk);
+        if (!w800_crc32_hardware_wait(&state)) return 0;
+
+        uint8_t *swap = current;
+        current = next;
+        next = swap;
+        chunk = next_chunk;
     }
     *result = state;
     return 1;
