@@ -1,5 +1,7 @@
 #include "../hal_generic.h"
 
+uint32_t Crc32Table[256] = { 0 };
+
 void uart_putc(uint8_t b)
 {
 	while(!UART_Writable(UART2_DEV));
@@ -31,12 +33,8 @@ void uart_init(void)
 
 void flash_init(void)
 {
-	FLASH_CalibrationNewCmd(0);
-	FLASH_ClockDiv(0);
-	RCC_PeriphClockCmd(APBPeriph_FLASH, APBPeriph_FLASH_CLOCK, 1);
-	PINMUX_Ctrl(10, 0, 1);
 	FLASH_StructInit(&flash_init_para);
-	if(!FLASH_Init(2)) if(!FLASH_Init(1)) FLASH_Init(0);
+	/*if(!FLASH_Init(2)) if(!FLASH_Init(1)) */ FLASH_Init(0);
 
 	FLASH_RxCmd(flash_init_para.FLASH_cmd_rd_id, 3, (uint8_t*)&flash_id);
 	if((flash_id & 0xFF) == 0x20)
@@ -44,7 +42,72 @@ void flash_init(void)
 		flash_init_para.FLASH_cmd_chip_e = 0xC7;
 	}
 
-	Cache_Enable(1);
+	//Cache_Enable(1);
+}
+
+void FLASH_TxData256B_RAM(uint32_t StartAddr, uint32_t DataPhaseLen, uint8_t* pData)
+{
+	SPIC_TypeDef* spi_flash = SPIC;
+	uint32_t tx_num = 0;
+	uint32_t ctrl0 = spi_flash->ctrlr0;
+	uint8_t addrbyte[4];
+	uint8_t fifo_alarm_level = 28;
+
+	/* write enable cmd */
+	FLASH_WriteEn();
+
+	/* disable SPI_FLASH user mode */
+	spi_flash->ssienr = 0;
+
+	/* set with TX mode and one bit mode */
+	spi_flash->ctrlr0 &= ~(BIT_TMOD(3) | BIT_CMD_CH(3) | BIT_ADDR_CH(3) | BIT_DATA_CH(3));
+	spi_flash->addr_length = flash_init_para.FLASH_addr_phase_len;
+
+	/* set write cmd & address to fifo */
+	addrbyte[3] = (StartAddr & 0xFF000000) >> 24;
+	addrbyte[2] = (StartAddr & 0xFF0000) >> 16;
+	addrbyte[1] = (StartAddr & 0xFF00) >> 8;
+	addrbyte[0] = StartAddr & 0xFF;
+
+	if(flash_init_para.FLASH_addr_phase_len == 3)
+		spi_flash->dr[0].word = FLASH_CMD_PP | (addrbyte[2] << 8) | (addrbyte[1] << 16) | (addrbyte[0] << 24);
+	else if(flash_init_para.FLASH_addr_phase_len == 0)
+	{
+		spi_flash->dr[0].byte = FLASH_CMD_PP;
+		spi_flash->dr[0].word = (addrbyte[3]) | (addrbyte[2] << 8) | (addrbyte[1] << 16) | (addrbyte[0] << 24);
+	}
+
+	FLASH_SW_CS_Control(0);
+	/* enable SPI_FLASH user mode */
+	spi_flash->ssienr = 1;
+
+	tx_num = 0;
+	while(tx_num < DataPhaseLen)
+	{
+		/* flow control*/
+		if((spi_flash->txflr & 0x1F) <= fifo_alarm_level)
+		{
+			spi_flash->dr[0].word = *(uint32_t*)(pData + tx_num);
+			tx_num += 4;
+		}
+		else
+		{
+			while((spi_flash->sr & 0x3) == 0x3);
+		}
+	}
+	FLASH_SW_CS_Control(1);
+
+	/* wait spic busy done */
+	FLASH_WaitBusy(0);
+
+	/* disable SPI_FLASH user mode */
+	spi_flash->ssienr = 0;
+
+	/* wait write busy done */
+	FLASH_WaitBusy(2);
+
+	/* backup bitmode */
+	spi_flash->ctrlr0 = ctrl0;
 }
 
 int FLASH_WriteStream(uint32_t address, uint32_t len, const uint8_t* data)
@@ -83,6 +146,12 @@ int FLASH_WriteStream(uint32_t address, uint32_t len, const uint8_t* data)
 		}
 
 		addr_begin = (((addr_begin - 1) >> 2) + 1) << 2;
+		//for(; size >= 256; size -= 256)
+		//{
+		//	FLASH_TxData256B_RAM(addr_begin, 256, data);
+		//	data += 256;
+		//	addr_begin += 256;
+		//}
 		for(; size >= 12; size -= 12)
 		{
 			memcpy(write_data, buffer, 12);
@@ -118,7 +187,7 @@ int FLASH_WriteStream(uint32_t address, uint32_t len, const uint8_t* data)
 		size = addr_end - addr_begin;
 	}
 
-	Cache_Flush();
+	DCache_Invalidate(FLASH_BASE + address, len);
 
 	return 1;
 }
@@ -126,7 +195,6 @@ int FLASH_WriteStream(uint32_t address, uint32_t len, const uint8_t* data)
 void flash_program_page(uint32_t off, const uint8_t* data)
 {
 	FLASH_WriteStream(off, FLASH_PAGE_SIZE, data);
-	Cache_Flush();
 }
 
 int flash_erase_range(uint32_t src, uint32_t len)
@@ -152,6 +220,7 @@ int flash_erase_range(uint32_t src, uint32_t len)
 			cur += 0x1000U;
 		}
 	}
+	DCache_Invalidate(FLASH_BASE + src, len);
 
 	return 1;
 }
@@ -159,27 +228,40 @@ int flash_erase_range(uint32_t src, uint32_t len)
 int flash_erase_chip()
 {
 	FLASH_Erase(EraseChip, 0);
+	SCB_InvalidateDCache();
 	return 1;
 }
 
+__attribute__((optimize("O2")))
 int crc32_memory_hardware(uint32_t addr, uint32_t len, uint32_t* result)
 {
-	*result = crc32_get((void*)addr, len);
+	uint32_t crc = 0xFFFFFFFF;
+	const uint8_t* p = (const uint8_t*)addr;
+	while(len >= 4)
+	{
+		crc = (crc >> 8) ^ Crc32Table[(crc ^ *p++) & 0xFF];
+		crc = (crc >> 8) ^ Crc32Table[(crc ^ *p++) & 0xFF];
+		crc = (crc >> 8) ^ Crc32Table[(crc ^ *p++) & 0xFF];
+		crc = (crc >> 8) ^ Crc32Table[(crc ^ *p++) & 0xFF];
+		len -= 4;
+	}
+
+	while(len--)
+		crc = (crc >> 8) ^ Crc32Table[(crc ^ *p++) & 0xFF];
+
+	*result = crc ^ 0xffffffff;
 	return 1;
 }
 
 int sha256_memory_hardware(uint32_t addr, uint32_t len)
 {
-	__attribute__((aligned(8))) uint8_t hash[32] = { 0 };
-	sha256((void*)addr, len, hash, 0);
-	memcpy(cmd_buf, hash, 32);
-	return 1;
+	return 0;
 }
 
 int read_efuse(void)
 {
 	EFUSE_LogicalMap_Read((uint8_t*)&cmd_buf);
-	return 512;
+	return 1024;
 }
 
 int read_factory_mac(uint8_t mac[6])
@@ -191,12 +273,31 @@ extern int main(void);
 
 __attribute__((used)) void flasher_stub(void)
 {
-	VECTOR_IrqDis(28);
+	irq_disable(3);
 	memset((void*)__image1_bss_start__, 0, (__image1_bss_end__ - __image1_bss_start__));
-	RCC_PeriphClockCmd(APBPeriph_FLASH, APBPeriph_FLASH_CLOCK, 0);
+	uint32_t Temp = REG32(SYSTEM_CTRL_BASE_LP + REG_LP_CLK_CTRL0);
+	Temp &= ~(BIT_MASK_FLASH_CLK_SEL << BIT_SHIFT_FLASH_CLK_SEL);
+	Temp |= BIT_SHIFT_FLASH_CLK_XTAL;
+	WRITE_REG32(SYSTEM_CTRL_BASE_LP + REG_LP_CLK_CTRL0, Temp);
+
 	CPU_ClkSet(0);
 	DelayUs(10);
-	Cache_Enable(0);
+	for(uint32_t i = 0; i < 256; i++)
+	{
+		uint32_t c = i;
+		for(int j = 0; j < 8; j++)
+		{
+			if((c & 1) != 0)
+			{
+				c = (0xEDB88320 ^ (c >> 1));
+			}
+			else
+			{
+				c = c >> 1;
+			}
+		}
+		Crc32Table[i] = c;
+	}
 	main();
 }
 
@@ -206,5 +307,6 @@ RAM_FUNCTION_START_TABLE RamStartTable = {
 	.RamWakeupFun = flasher_stub,
 	.RamPatchFun0 = flasher_stub,
 	.RamPatchFun1 = flasher_stub,
-	.RamPatchFun2 = flasher_stub
+	.RamPatchFun2 = flasher_stub,
+	.FlashStartFun = flasher_stub,
 };

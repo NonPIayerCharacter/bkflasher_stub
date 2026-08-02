@@ -11,9 +11,12 @@
 #include "RDA5981/rda5981_hal.h"
 #elif PLATFORM_RTL8710B
 #include "RTL8710B/rtl8710b_hal.h"
+#elif PLATFORM_RTL8720D
+#include "RTL8720D/rtl8720d_hal.h"
 #endif
 
-#define REG32(a) (*(volatile uint32_t *)(uintptr_t)(a))
+#define REG32(a)				(*(volatile uint32_t *)(uintptr_t)(a))
+#define WRITE_REG32(REG, VAL)	((*(volatile unsigned int*)(REG)) = (unsigned int)(VAL))
 
 /* Common OBK/Easy-Flasher custom-stub protocol.
  * These values are shared with the existing OBK custom stubs.

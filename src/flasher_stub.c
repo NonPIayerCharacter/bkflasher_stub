@@ -707,6 +707,7 @@ static void handle_obk_frame(void)
 			xmodem_send_memory(FLASH_BASE + off, len);
 			break;
 		}
+#ifndef NO_MINIZ_COMPRESSION
 		case OBK_CMD_FLASH_XMODEM_UL_Z:
 		{
 			if(data_len < 8U) { obk_ack(type, OBK_STATUS_LEN_ERROR); return; }
@@ -717,6 +718,8 @@ static void handle_obk_frame(void)
 			xmodem_send_compressed_memory(FLASH_BASE + off, len, level);
 			break;
 		}
+#endif
+#ifndef NO_MINIZ_DECOMPRESSION
 		case OBK_CMD_FLASH_XMODEM_DL_Z:
 		{
 			if(data_len < 8U) { obk_ack(type, OBK_STATUS_LEN_ERROR); return; }
@@ -727,6 +730,7 @@ static void handle_obk_frame(void)
 			xmodem_receive_compressed_flash(off, len);
 			break;
 		}
+#endif
 		case OBK_CMD_RAW_XMODEM_UL:
 		{
 			if(data_len < 8U) { obk_ack(type, OBK_STATUS_LEN_ERROR); return; }
