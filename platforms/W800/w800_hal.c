@@ -210,3 +210,8 @@ int read_efuse(void)
 {
 	return 0;
 }
+
+int sha256_memory_hardware(uint32_t addr, uint32_t len)
+{
+	return 0;
+}

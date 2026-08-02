@@ -4,10 +4,13 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
+#define BUF_SIZE 0x6000
 #if PLATFORM_W800
-#include "w800/w800_hal.h"
+#include "W800/w800_hal.h"
 #elif PLATFORM_RDA5981
-#include "rda5981/rda5981_hal.h"
+#include "RDA5981/rda5981_hal.h"
+#elif PLATFORM_RTL8710B
+#include "RTL8710B/rtl8710b_hal.h"
 #endif
 
 #define REG32(a) (*(volatile uint32_t *)(uintptr_t)(a))
@@ -23,7 +26,7 @@
 #define OBK_CMD_FLASH_ERASE        0x04U
 #define OBK_CMD_FLASH_CHIP_ERASE   0x05U
 #define OBK_CMD_BAUD_CHANGE        0x07U
-#define OBK_CMD_SHA256             0x09U
+#define OBK_CMD_FLASH_SHA256       0x09U
 #define OBK_CMD_FLASH_CRC32        0x8FU
 #define OBK_CMD_FLASH_ID           0x90U
 #define OBK_CMD_FLASH_XMODEM_DL    0x91U  /* host -> target flash write */
@@ -94,7 +97,7 @@ typedef uint32_t alias_u32 __attribute__((may_alias));
 
 extern uint32_t flash_id;
 extern uint32_t flash_size;
-extern uint8_t cmd_buf[0x4000];
+extern uint8_t cmd_buf[BUF_SIZE];
 
 uint32_t flash_size_from_jedec(uint32_t id);
 
@@ -115,6 +118,8 @@ int flash_erase_chip(void);
 void flash_init(void);
 
 int crc32_memory_hardware(uint32_t addr, uint32_t len, uint32_t* result);
+
+int sha256_memory_hardware(uint32_t addr, uint32_t len);
 
 int read_factory_mac(uint8_t mac[6]);
 

@@ -4,7 +4,7 @@
 #if PLATFORM_RDA5981
 __attribute__((section(".dram2")))
 #endif
-uint8_t cmd_buf[0x4000] __attribute__((aligned(4)));
+uint8_t cmd_buf[BUF_SIZE] __attribute__((aligned(4)));
 static uint8_t xmodem_packet[1 + 3 + 1024 + 2] __attribute__((aligned(4)));
 uint32_t flash_id;
 uint32_t flash_size;
@@ -95,6 +95,18 @@ static uint32_t crc32_memory(uint32_t addr, uint32_t len)
 	uint32_t crc = 0xFFFFFFFFU;
 	if(crc32_memory_hardware(addr, len, &crc)) return crc;
 	return crc32_memory_software(addr, len);
+}
+
+static void obk_send_flash_sha256(uint8_t type, uint32_t off, uint32_t len)
+{
+	if(!range_does_not_wrap(off, len) || !flash_size ||
+		off > flash_size || len > (flash_size - off))
+	{
+		obk_ack(type, OBK_STATUS_ADDR_ERROR);
+		return;
+	}
+	sha256_memory_hardware(FLASH_BASE + off, len);
+	obk_data_reply(type, cmd_buf, 32, OBK_STATUS_SUCCESS);
 }
 
 static void obk_send_flash_crc32(uint8_t type, uint32_t off, uint32_t len)
@@ -641,6 +653,14 @@ static void handle_obk_frame(void)
 			uint32_t off = load_le32(cmd_buf);
 			uint32_t len = load_le32(cmd_buf + 4);
 			obk_send_flash_crc32(type, off, len);
+			break;
+		}
+		case OBK_CMD_FLASH_SHA256:
+		{
+			if(data_len != 8U) { obk_ack(type, OBK_STATUS_LEN_ERROR); return; }
+			uint32_t off = load_le32(cmd_buf);
+			uint32_t len = load_le32(cmd_buf + 4);
+			obk_send_flash_sha256(type, off, len);
 			break;
 		}
 		case OBK_CMD_GET_MAC:

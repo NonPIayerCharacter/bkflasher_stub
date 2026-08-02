@@ -1,4 +1,8 @@
 #pragma once
+#if PLATFORM_RDA5981 || PLATFORM_RTL8710B
+#undef MINIZ_USE_UNALIGNED_LOADS_AND_STORES
+#define MINIZ_USE_UNALIGNED_LOADS_AND_STORES 1
+#endif
 #include "miniz_common.h"
 
 #ifndef MINIZ_NO_DEFLATE_APIS

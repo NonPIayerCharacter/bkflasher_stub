@@ -1,4 +1,4 @@
-TOOLCHAIN ?= /mnt/data/csky_toolchain/bin
+TOOLCHAIN ?= /mnt/data/csky_toolchain/bin/
 CROSS_COMPILE ?= csky-abiv2-elf-
 
 CFLAGS := -mcpu=ck804ef -mhard-float -Os -std=gnu99 -ffunction-sections -fdata-sections -fno-builtin -nostdlib -nodefaultlibs -nostartfiles

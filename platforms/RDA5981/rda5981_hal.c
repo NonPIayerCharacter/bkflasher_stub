@@ -2,8 +2,6 @@
 
 #define CRC_CHUNK_SIZE   (sizeof(cmd_buf) / 2)
 #define CRC_CHUNK_WORDS  (CRC_CHUNK_SIZE / sizeof(uint32_t))
-__attribute__((section(".dram2")))
-static uint32_t crc_buf[CRC_CHUNK_WORDS] __attribute__((aligned(4)));
 
 uint32_t SystemCoreClock = RDA_SYS_CLK_FREQUENCY_160M; /*!< System Clock Frequency (Core Clock)*/
 uint32_t AHBBusClock = RDA_BUS_CLK_FREQUENCY_80M; /*!< AHB Bus Clock Frequency (Bus Clock)*/
@@ -288,7 +286,7 @@ int crc32_memory_hardware(uint32_t addr, uint32_t len, uint32_t* result)
 	uint32_t chunks = len / CRC_CHUNK_SIZE;
 	uint32_t tail = len % CRC_CHUNK_SIZE;
 
-	uint32_t* buf[2] = { (uint32_t*)cmd_buf, crc_buf };
+	uint32_t* buf[2] = { (uint32_t*)cmd_buf, (uint32_t*)cmd_buf + CRC_CHUNK_SIZE };
 
 	uint32_t cur = 0;
 
@@ -373,6 +371,11 @@ int read_efuse(void)
 		cmd_buf[(page * 2 + 1)] = (uint8_t)(value >> 8);
 	}
 	return 32;
+}
+
+int sha256_memory_hardware(uint32_t addr, uint32_t len)
+{
+	return 0;
 }
 
 extern int main(void);
