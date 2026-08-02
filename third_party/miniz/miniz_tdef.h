@@ -156,7 +156,11 @@ enum
         mz_uint16 m_huff_codes[TDEFL_MAX_HUFF_TABLES][TDEFL_MAX_HUFF_SYMBOLS];
         mz_uint8 m_huff_code_sizes[TDEFL_MAX_HUFF_TABLES][TDEFL_MAX_HUFF_SYMBOLS];
         mz_uint8 m_lz_code_buf[TDEFL_LZ_CODE_BUF_SIZE];
+#if !PLATFORM_RDA5981
         mz_uint16 m_next[TDEFL_LZ_DICT_SIZE];
+#else
+        mz_uint16* m_next;
+#endif
         mz_uint16 m_hash[TDEFL_LZ_HASH_SIZE];
         mz_uint8 m_output_buf[TDEFL_OUT_BUF_SIZE];
     } tdefl_compressor;

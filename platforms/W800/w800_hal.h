@@ -1,0 +1,53 @@
+#ifndef W800_HAL_H
+#define W800_HAL_H
+
+#define APB_CLK                    40000000U
+
+#define HR_APB_BASE_ADDR           (0x40010000U)
+#define HR_UART0_BASE_ADDR         (HR_APB_BASE_ADDR + 0x600U)
+#define HR_UART0_LINE_CTRL         (HR_UART0_BASE_ADDR + 0x00U)
+#define HR_UART0_FLOW_CTRL         (HR_UART0_BASE_ADDR + 0x04U)
+#define HR_UART0_DMA_CTRL          (HR_UART0_BASE_ADDR + 0x08U)
+#define HR_UART0_FIFO_CTRL         (HR_UART0_BASE_ADDR + 0x0CU)
+#define HR_UART0_BAUD_RATE_CTRL    (HR_UART0_BASE_ADDR + 0x10U)
+#define HR_UART0_INT_MASK          (HR_UART0_BASE_ADDR + 0x14U)
+#define HR_UART0_FIFO_STATUS       (HR_UART0_BASE_ADDR + 0x1CU)
+#define HR_UART0_TX_WIN            (HR_UART0_BASE_ADDR + 0x20U)
+#define HR_UART0_RX_WIN            (HR_UART0_BASE_ADDR + 0x30U)
+
+#define ULCON_WL8                  0x03U
+#define ULCON_TX_EN                0x40U
+#define ULCON_RX_EN                0x80U
+#define UFS_TX_FIFO_CNT_MASK       0x3FU
+#define UFS_RX_FIFO_CNT_MASK       0x3C0U
+#define UFS_RX_FIFO_CNT_SHIFT      6U
+
+#define FLASH_BASE                 0x08000000U
+#define FT_PARAM_SIZE              132U
+#define W800_ROM_SIZE              0x5000U
+#define W800_RAM_BASE              0x20000000U
+#define W800_RAM_SIZE              0x48000U
+#define FT_PARAM_RUNTIME_OFFSET    0x1000U
+#define FT_PARAM_MAGIC             0xA0FFFF9FU
+
+#define W800_FLASH_CTRL_BASE       0x40002000U
+#define W800_FLASH_CMD_ADDR        (W800_FLASH_CTRL_BASE + 0x000U)
+#define W800_FLASH_CMD_START       (W800_FLASH_CTRL_BASE + 0x004U)
+#define W800_FLASH_ADDR_REG        (W800_FLASH_CTRL_BASE + 0x010U)
+#define W800_FLASH_CMD_START_BIT   0x00000100U
+#define W800_RSA_SCRATCH_BASE      0x40000000U
+
+#define HR_CRYPTO_BASE_ADDR        0x40000600U
+#define HR_CRYPTO_SRC_ADDR         (HR_CRYPTO_BASE_ADDR + 0x00U)
+#define HR_CRYPTO_SEC_CFG          (HR_CRYPTO_BASE_ADDR + 0x08U)
+#define HR_CRYPTO_SEC_CTRL         (HR_CRYPTO_BASE_ADDR + 0x0CU)
+#define HR_CRYPTO_SEC_STS          (HR_CRYPTO_BASE_ADDR + 0x30U)
+#define HR_CRYPTO_CRC_KEY          (HR_CRYPTO_BASE_ADDR + 0x44U)
+#define HR_CRYPTO_CRC_RESULT       HR_CRYPTO_CRC_KEY
+#define CRYPTO_CRC32_CONFIG        ((6U << 16) | (3U << 21) | (3U << 23))
+#define CRYPTO_COMPLETE_STATUS     0x00010000U
+#define CRYPTO_WAIT_LOOPS          10000000U
+
+#define FLASH_WRITE_MIN_OFFSET     0x2000U
+
+#endif
