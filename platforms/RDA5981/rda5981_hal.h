@@ -5,17 +5,18 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
-#include "rda5981_bootrom_api.h"
 
 #define FLASH_CTL_REG_BASE          (0x17FFF000U)
 #define FLASH_CTL_TX_CMD_ADDR_REG   (FLASH_CTL_REG_BASE + 0x00)
 #define FLASH_CTL_TX_BLOCK_SIZE_REG (FLASH_CTL_REG_BASE + 0x04)
+#define FLASH_CTL_TX_FIFO_DATA_REG  (FLASH_CTL_REG_BASE + 0x08)
+#define FLASH_CTL_STATUS_REG        (FLASH_CTL_REG_BASE + 0x0C)
 #define FLASH_CTL_RX_FIFO_DATA_REG  (FLASH_CTL_REG_BASE + 0x10)
 #define WRITE_REG32(REG, VAL)       ((*(volatile unsigned int*)(REG)) = (unsigned int)(VAL))
 #define OR_REG32(REG, VAL)          ((*(volatile unsigned int*)(REG)) |= (unsigned int)(VAL))
 #define WRITE_REG8(REG, VAL)        ((*(volatile unsigned char*)(REG)) = (unsigned char)(VAL))
-#define ADDR2REG(addr)              (*((volatile unsigned int *)(addr)))
-#define RF_SPI_REG                  ADDR2REG(0x4001301CUL)
+#define READ_REG32(addr)            (*((volatile unsigned int *)(addr)))
+#define RF_SPI_REG                  READ_REG32(0x4001301CUL)
 #define BIT31                       (1ul << 31)
 
 #define __I     volatile const       /*!< Defines 'read only' permissions                 */
@@ -165,14 +166,16 @@ typedef struct
 #define RDA_SCU_BASE                (RDA_APB_BASE  + 0x00000)
 #define RDA_GPIO_BASE               (RDA_APB_BASE  + 0x01000)
 #define RDA_WDT_BASE                (RDA_SCU_BASE  + 0x0000C)
+#define RDA_UART0_BASE              (RDA_AHB0_BASE + 0x12000)
 #define RDA_DMACFG_BASE             (RDA_AHB1_BASE + 0x81000)
 #define RDA_SCU                     ((RDA_SCU_TypeDef       *) RDA_SCU_BASE      )
 #define RDA_GPIO                    ((RDA_GPIO_TypeDef      *) RDA_GPIO_BASE     )
 #define RDA_WDT                     ((RDA_WDT_TypeDef       *) RDA_WDT_BASE      )
 #define RDA_DMACFG                  ((RDA_DMACFG_TypeDef    *) RDA_DMACFG_BASE   )
+#define RDA_UART0                   ((RDA_UART_TypeDef      *) RDA_UART0_BASE    )
 
-#define UART_BASE                   ((volatile uint32_t *)0x40012000U)
 #define RXFIFO_EMPTY_MASK           (0x01UL << 0)
+#define TXFIFO_FULL_MASK            (0x01UL << 19)
 
 #define WDT_EN_BIT                  (9)
 #define WDT_CLR_BIT                 (10)
@@ -180,12 +183,18 @@ typedef struct
 #define WDT_TMRCNT_WIDTH            (4)
 
 #define FLASH_BASE                  (0x18000000U)
-#define CMD_64KB_BLOCK_ERASE        (0x000000d8UL)
-#define CMD_CHIP_ERASE              (0x00000060UL)
+#define CMD_PAGE_PROGRAM            (0x00000002U)
+#define CMD_READ_STATUS_REGISTER    (0x00000005U)
+#define CMD_WRITE_ENABLE            (0x00000006U)
+#define CMD_4KB_SECTOR_ERASE        (0x00000020U)
+#define CMD_CHIP_ERASE              (0x00000060U)
+#define CMD_READ_FLASH_ID           (0x0000009FU)
+#define CMD_64KB_BLOCK_ERASE        (0x000000D8U)
 
 static inline void uart_putc(uint8_t c)
 {
-	UART_SEND_BYTE(c);
+	while((RDA_UART0->FSR & TXFIFO_FULL_MASK) != 0);
+	RDA_UART0->THR = c;
 }
 
 #endif

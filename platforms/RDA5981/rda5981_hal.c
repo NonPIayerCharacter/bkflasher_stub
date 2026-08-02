@@ -5,27 +5,53 @@
 __attribute__((section(".dram2")))
 static uint32_t crc_buf[CRC_CHUNK_WORDS] __attribute__((aligned(4)));
 
-static volatile RDA_UART_TypeDef* UART = (volatile RDA_UART_TypeDef*)UART_BASE;
-static int ChipHwVersion = 0;
 uint32_t SystemCoreClock = RDA_SYS_CLK_FREQUENCY_160M; /*!< System Clock Frequency (Core Clock)*/
 uint32_t AHBBusClock = RDA_BUS_CLK_FREQUENCY_80M; /*!< AHB Bus Clock Frequency (Bus Clock)*/
 
-int rda_ccfg_hwver(void)
+static void wait_busy_down(void)
 {
-	if(0 == ChipHwVersion)
+	while((READ_REG32(FLASH_CTL_STATUS_REG) & 1U) != 0U)
 	{
-		ChipHwVersion = (int)((RDA_GPIO->REVID >> 16) & 0xFFUL) + 1;
+		__asm volatile ("nop");
 	}
-	return ChipHwVersion;
+}
+
+static void spi_wip_reset(void)
+{
+	do
+	{
+		WRITE_REG32(FLASH_CTL_TX_CMD_ADDR_REG, CMD_READ_STATUS_REGISTER);
+		wait_busy_down();
+	} while((READ_REG32(FLASH_CTL_RX_FIFO_DATA_REG) & 1U) != 0U);
+}
+
+static void spi_write_reset(void)
+{
+	WRITE_REG32(FLASH_CTL_TX_CMD_ADDR_REG, CMD_WRITE_ENABLE);
+	wait_busy_down();
+	do
+	{
+		WRITE_REG32(FLASH_CTL_TX_CMD_ADDR_REG, CMD_READ_STATUS_REGISTER);
+		wait_busy_down();
+	} while((READ_REG32(FLASH_CTL_RX_FIFO_DATA_REG) & 1U) != 0U);
+}
+
+static void flash_erase_4KB(uint32_t addr)
+{
+	spi_wip_reset();
+	spi_write_reset();
+	WRITE_REG32(FLASH_CTL_TX_CMD_ADDR_REG, CMD_4KB_SECTOR_ERASE | (addr << 8));
+	wait_busy_down();
+	spi_wip_reset();
 }
 
 int8_t uart_getc_timeout(uint8_t* out, uint32_t loops)
 {
 	while(loops--)
 	{
-		if(UART->LSR & RXFIFO_EMPTY_MASK)
+		if(RDA_UART0->LSR & RXFIFO_EMPTY_MASK)
 		{
-			*out = UART->RBR & 0xFF;
+			*out = RDA_UART0->RBR & 0xFF;
 			return 1;
 		}
 	}
@@ -41,15 +67,15 @@ void uart_set_baud(uint32_t baud)
 	baud_divisor = (AHBBusClock / baud) >> 4;
 	baud_mod = (AHBBusClock / baud) & 0x0F;
 
-	ier_temp = UART->IER;
-	UART->LCR |= (1 << 7); //enable load devisor register
-	UART->DLL = (baud_divisor >> 0) & 0xFF;
-	UART->DLH = (baud_divisor >> 8) & 0xFF;
-	UART->LCR &= ~(1 << 7);// after loading, disable load devisor register
-	UART->IER = ier_temp;
-	UART->LCR |= (1 << 7); //enable load devisor register
-	UART->DL2 = (baud_mod >> 1) + ((baud_mod - (baud_mod >> 1)) << 4);
-	UART->LCR &= ~(1 << 7);// after loading, disable load devisor register
+	ier_temp = RDA_UART0->IER;
+	RDA_UART0->LCR |= (1 << 7); //enable load devisor register
+	RDA_UART0->DLL = (baud_divisor >> 0) & 0xFF;
+	RDA_UART0->DLH = (baud_divisor >> 8) & 0xFF;
+	RDA_UART0->LCR &= ~(1 << 7);// after loading, disable load devisor register
+	RDA_UART0->IER = ier_temp;
+	RDA_UART0->LCR |= (1 << 7); //enable load devisor register
+	RDA_UART0->DL2 = (baud_mod >> 1) + ((baud_mod - (baud_mod >> 1)) << 4);
+	RDA_UART0->LCR &= ~(1 << 7);// after loading, disable load devisor register
 }
 
 void uart_init(void)
@@ -57,7 +83,7 @@ void uart_init(void)
 	uart_set_baud(115200U);
 }
 
-void rda5981_spi_flash_erase_64KB_block(uint32_t addr)
+void flash_erase_64KB(uint32_t addr)
 {
 	spi_wip_reset();
 	spi_write_reset();
@@ -124,15 +150,61 @@ void rda_ccfg_ck(void)
 	/* Load RAM code */
 	for(val = 0; val < sizeof(trap_ram_code); val += 4)
 	{
-		ADDR2REG(TRAP_RAM_BASE + val) = trap_ram_code[val >> 2];
+		READ_REG32(TRAP_RAM_BASE + val) = trap_ram_code[val >> 2];
 	}
 #endif
 #endif /* CLK_FREQ_160M && CLK_FREQ_80M */
 }
 
+static inline void spi_flash_flush_cache(void)
+{
+	WRITE_REG32(0x40014004U, 1U);
+
+	delay_loops(8);
+
+	while(READ_REG32(0x40014004U) & 0x80000000U);
+}
+
+static void flash_write(uint32_t addr, const void* src, uint32_t len)
+{
+	const uint8_t* p = src;
+
+	while(len >= 256)
+	{
+		spi_wip_reset();
+		spi_write_reset();
+
+		for(unsigned i = 0; i < 256; i++) WRITE_REG8(FLASH_CTL_TX_FIFO_DATA_REG, *p++);
+
+		WRITE_REG32(FLASH_CTL_TX_BLOCK_SIZE_REG, 256 << 8);
+		WRITE_REG32(FLASH_CTL_TX_CMD_ADDR_REG, CMD_PAGE_PROGRAM | (addr << 8));
+
+		wait_busy_down();
+		spi_wip_reset();
+
+		addr += 256;
+		len -= 256;
+	}
+
+	if(len)
+	{
+		spi_wip_reset();
+		spi_write_reset();
+
+		for(uint32_t i = 0; i < len; i++) WRITE_REG8(FLASH_CTL_TX_FIFO_DATA_REG, *p++);
+
+		WRITE_REG32(FLASH_CTL_TX_BLOCK_SIZE_REG, len << 8);
+		WRITE_REG32(FLASH_CTL_TX_CMD_ADDR_REG, CMD_PAGE_PROGRAM | (addr << 8));
+
+		wait_busy_down();
+		spi_wip_reset();
+	}
+}
+
 void flash_program_page(uint32_t off, const uint8_t* data)
 {
-	RDA5991H_WRITE_FLASH(off, (uint8_t*)data, FLASH_PAGE_SIZE);
+	flash_write(off, data, FLASH_PAGE_SIZE);
+	spi_flash_flush_cache();
 }
 
 int flash_erase_range(uint32_t src, uint32_t len)
@@ -153,13 +225,13 @@ int flash_erase_range(uint32_t src, uint32_t len)
 				{
 					for(; atmp < a64kend; atmp += (0x01UL << 16))
 					{
-						rda5981_spi_flash_erase_64KB_block(atmp);
+						flash_erase_64KB(atmp);
 					}
 					if(atmp == a4kend)
 						break;
 				}
 			}
-			rda5981_spi_flash_erase_4KB_sector(atmp);
+			flash_erase_4KB(atmp);
 		}
 	}
 	return 1;
@@ -175,23 +247,23 @@ int flash_erase_chip()
 	spi_wip_reset();
 	// Write partitions back, otherwise it would become unbootable unless flashed in ROM mode.
 	// Find ROM function address to write them ourselves?
-	RDA5991H_WRITE_FLASH(FLASH_BASE, (uint8_t*)cmd_buf, FLASH_SECTOR_SIZE);
+	flash_write(FLASH_BASE, (uint8_t*)cmd_buf, FLASH_SECTOR_SIZE);
 	return 1;
 }
 
 void flash_init(void)
 {
 	WRITE_REG32(FLASH_CTL_TX_BLOCK_SIZE_REG, 3 << 8);
-	uint32_t status3 = ADDR2REG(FLASH_CTL_RX_FIFO_DATA_REG);
-	uint32_t status4 = ADDR2REG(FLASH_CTL_RX_FIFO_DATA_REG);
-	uint32_t status5 = ADDR2REG(FLASH_CTL_RX_FIFO_DATA_REG);
+	uint32_t status3 = READ_REG32(FLASH_CTL_RX_FIFO_DATA_REG);
+	uint32_t status4 = READ_REG32(FLASH_CTL_RX_FIFO_DATA_REG);
+	uint32_t status5 = READ_REG32(FLASH_CTL_RX_FIFO_DATA_REG);
 	wait_busy_down();
 	spi_wip_reset();
-	WRITE_REG32(FLASH_CTL_TX_CMD_ADDR_REG, 0x9F);
+	WRITE_REG32(FLASH_CTL_TX_CMD_ADDR_REG, CMD_READ_FLASH_ID);
 	wait_busy_down();
-	status3 = ADDR2REG(FLASH_CTL_RX_FIFO_DATA_REG);
-	status4 = ADDR2REG(FLASH_CTL_RX_FIFO_DATA_REG);
-	status5 = ADDR2REG(FLASH_CTL_RX_FIFO_DATA_REG);
+	status3 = READ_REG32(FLASH_CTL_RX_FIFO_DATA_REG);
+	status4 = READ_REG32(FLASH_CTL_RX_FIFO_DATA_REG);
+	status5 = READ_REG32(FLASH_CTL_RX_FIFO_DATA_REG);
 	flash_id = ((status5 & 0xFF) << 16) | ((status4 & 0xFF) << 8) | (status3 & 0xFF);
 }
 
@@ -219,8 +291,6 @@ int crc32_memory_hardware(uint32_t addr, uint32_t len, uint32_t* result)
 	uint32_t* buf[2] = { (uint32_t*)cmd_buf, crc_buf };
 
 	uint32_t cur = 0;
-
-	OR_REG32(RDA_DMACFG_BASE * 0x40000u, 0x40000);
 
 	RDA_DMACFG->dma_func_ctrl = 0x000F0003;
 	RDA_DMACFG->crc_gen = 0x04C11DB7;
@@ -321,6 +391,7 @@ void Reset_Handler(void)
 	memset((void*)__bss_start__, 0, (__bss_end__ - __bss_start__));
 	void rda_ccfg_ck(void);
 	rda_ccfg_ck();
-	crc32_memory_hardware(0, 4, NULL); // dry run
+	// enable dma clock
+	RDA_SCU->CLKGATE0 |= (1 << 18);
 	main();
 }
