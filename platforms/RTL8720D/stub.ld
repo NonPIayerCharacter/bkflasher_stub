@@ -54,6 +54,7 @@ SECTIONS
 	FLASH_WriteEn           = 0x1f3d;
 	FLASH_TxData256B        = 0x1f61;
 	FLASH_TxData12B         = 0x2049;
+	FLASH_SetStatus         = 0x2129;
 	FLASH_Erase             = 0x2147;
 	FLASH_StructInit        = 0x2451;
 	FLASH_Init              = 0x24e1;
@@ -65,11 +66,9 @@ SECTIONS
 	UART_CharGet            = 0x4201;
 	UART_Init               = 0x4307;
 	CPU_ClkSet              = 0x4a11;
-	FLASH_ClockDiv          = 0x4a49;
-	FLASH_CalibrationNewCmd = 0x4bc1;
-	RCC_PeriphClockCmd      = 0x4f09;
-	irq_disable             = 0x5575;
+	memcmp                  = 0x6545;
 	memcpy                  = 0x6591;
 	memset                  = 0x66ad;
+	SPIC_CALIB_PATTERN      = 0x20064;
 	flash_init_para         = 0x801f8;
 }

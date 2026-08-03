@@ -31,18 +31,97 @@ void uart_init(void)
 	uart_set_baud(115200U);
 }
 
+void flash_rx_mode_switch(uint8_t read_mode)
+{
+	uint8_t tmp_dc = 0, status = 0, spic_mode = 0, i;
+
+	for(i = read_mode; i < 5; i++)
+	{
+		if(i == ReadQuadIOMode)
+		{
+			flash_init_para.FLASH_pseudo_prm_en = 1;
+			flash_init_para.FALSH_quad_valid_cmd = (BIT_WR_BLOCKING | BIT_RD_QUAD_IO | BIT_PRM_EN);
+
+			tmp_dc = flash_init_para.FLASH_rd_dummy_cyle[2];
+			flash_init_para.FLASH_rd_dummy_cyle[2] -= QUAD_PRM_CYCLE_NUM;
+
+			spic_mode = SpicQuadBitMode;
+			flash_init_para.FLASH_cur_cmd = FLASH_CMD_4READ;
+
+		}
+		else if(i == ReadQuadOMode)
+		{
+			flash_init_para.FLASH_pseudo_prm_en = 0;
+			flash_init_para.FALSH_quad_valid_cmd = (BIT_WR_BLOCKING | BIT_RD_QUAD_O);
+		
+			flash_init_para.FLASH_rd_dummy_cyle[2] = FLASH_DM_CYCLE_4O;
+			tmp_dc = flash_init_para.FLASH_rd_dummy_cyle[2];
+		
+			spic_mode = SpicQuadBitMode;
+			flash_init_para.FLASH_cur_cmd = FLASH_CMD_QREAD;
+		
+		}
+		else if(i == ReadDualIOMode)
+		{
+			flash_init_para.FLASH_pseudo_prm_en = 1;
+			flash_init_para.FALSH_dual_valid_cmd = (BIT_WR_BLOCKING | BIT_FRD_SINGEL | BIT_CTRLR0_CH | BIT_PRM_EN);
+		
+			tmp_dc = flash_init_para.FLASH_rd_dummy_cyle[1];
+			flash_init_para.FLASH_rd_dummy_cyle[1] -= DUAL_PRM_CYCLE_NUM;
+		
+			spic_mode = SpicDualBitMode;
+			flash_init_para.FLASH_cur_cmd = FLASH_CMD_2READ;
+		
+		}
+		else if(i == ReadDualOMode)
+		{
+			flash_init_para.FLASH_pseudo_prm_en = 0;
+			flash_init_para.FALSH_dual_valid_cmd = (BIT_WR_BLOCKING | BIT_RD_DUAL_I);
+		
+			flash_init_para.FLASH_rd_dummy_cyle[1] = FLASH_DM_CYCLE_2O;
+			tmp_dc = flash_init_para.FLASH_rd_dummy_cyle[1];
+		
+			spic_mode = SpicDualBitMode;
+			flash_init_para.FLASH_cur_cmd = FLASH_CMD_DREAD;
+		}
+		else
+		{
+			flash_init_para.FLASH_pseudo_prm_en = 0;
+		
+			tmp_dc = flash_init_para.FLASH_rd_dummy_cyle[0];
+			spic_mode = SpicOneBitMode;
+			flash_init_para.FLASH_cur_cmd = FLASH_CMD_READ;
+		}
+
+		if(flash_init_para.FLASH_Id == FLASH_ID_MICRON)
+		{
+			FLASH_RxCmd(0x85, 1, &status);
+
+			status = (status & 0x0f) | (tmp_dc << 4);
+			FLASH_SetStatus(0x81, 1, &status);
+		}
+
+		flash_init_para.FLASH_rd_sample_phase = SPIC_LOWSPEED_SAMPLE_PHASE;
+		FLASH_Init(spic_mode);
+
+		DCache_Invalidate(FLASH_BASE, 8);
+
+		if(memcmp((void*)FLASH_BASE, SPIC_CALIB_PATTERN, 8) == 0)
+		{
+			break;
+		}
+	}
+}
+
 void flash_init(void)
 {
 	FLASH_StructInit(&flash_init_para);
-	/*if(!FLASH_Init(2)) if(!FLASH_Init(1)) */ FLASH_Init(0);
-
+	flash_rx_mode_switch(0);
 	FLASH_RxCmd(flash_init_para.FLASH_cmd_rd_id, 3, (uint8_t*)&flash_id);
 	if((flash_id & 0xFF) == 0x20)
 	{
 		flash_init_para.FLASH_cmd_chip_e = 0xC7;
 	}
-
-	//Cache_Enable(1);
 }
 
 void FLASH_TxData256B_RAM(uint32_t StartAddr, uint32_t DataPhaseLen, uint8_t* pData)
@@ -273,7 +352,7 @@ extern int main(void);
 
 __attribute__((used)) void flasher_stub(void)
 {
-	irq_disable(3);
+	__asm volatile ("cpsid i" : : : "memory");
 	memset((void*)__image1_bss_start__, 0, (__image1_bss_end__ - __image1_bss_start__));
 	uint32_t Temp = REG32(SYSTEM_CTRL_BASE_LP + REG_LP_CLK_CTRL0);
 	Temp &= ~(BIT_MASK_FLASH_CLK_SEL << BIT_SHIFT_FLASH_CLK_SEL);

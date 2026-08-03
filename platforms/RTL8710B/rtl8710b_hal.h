@@ -114,10 +114,6 @@ typedef struct
 	__IO uint32_t FCR;				/*!< UART FIFO Control register,              			Address offset: 0x54*/
 } UART_TypeDef;
 
-typedef int32_t IRQn_Type;
-typedef void (*HAL_VECTOR_FUN) (void);
-typedef uint32_t(*IRQ_FUN)(void* Data);
-
 #define BIT(x)							(1 << x)
 #define _LONG_CALL_						__attribute__ ((long_call))
 #define FLASH_BASE						0x08000000
@@ -130,11 +126,51 @@ typedef uint32_t(*IRQ_FUN)(void* Data);
 #define EraseChip						0
 #define EraseBlock						1
 #define EraseSector						2
+#define FLASH_ID_OTHERS					0
+#define FLASH_ID_MXIC					1
+#define FLASH_ID_WINBOND				2
+#define FLASH_ID_MICRON					3
+#define FLASH_ID_EON					4
+#define FLASH_ID_GD						5
+#define FLASH_ID_BOHONG					6
+#define ReadQuadIOMode					0
+#define ReadQuadOMode					1
+#define ReadDualIOMode					2
+#define ReadDualOMode 					3
+#define ReadOneMode						4
+#define SpicOneBitMode					0
+#define SpicDualBitMode					1
+#define SpicQuadBitMode					2
+#define BIT_WR_BLOCKING					(0x00000001 << 9)
+#define BIT_WR_QUAD_II					(0x00000001 << 8)
+#define BIT_WR_QUAD_I					(0x00000001 << 7)
+#define BIT_WR_DUAL_II					(0x00000001 << 6)
+#define BIT_WR_DUAL_I					(0x00000001 << 5)
+#define BIT_RD_QUAD_IO					(0x00000001 << 4)
+#define BIT_RD_QUAD_O					(0x00000001 << 3)
+#define BIT_RD_DUAL_IO					(0x00000001 << 2)
+#define BIT_RD_DUAL_I					(0x00000001 << 1)
+#define BIT_FRD_SINGEL					(0x00000001)
+#define SPIC_VALID_CMD_MASK				(0x7fff)
+#define DUAL_PRM_CYCLE_NUM				4
+#define QUAD_PRM_CYCLE_NUM				2
+#define FLASH_DM_CYCLE_2O				0x08
+#define FLASH_DM_CYCLE_2IO				0x04
+#define FLASH_DM_CYCLE_4O				0x08
+#define FLASH_DM_CYCLE_4IO				0x06
+#define FLASH_CMD_PP					0x02            //Page Program
+#define FLASH_CMD_READ					0x03            //read data
+#define FLASH_CMD_DREAD					0x3B            //Double Output Mode command
+#define FLASH_CMD_FREAD					0x0B            //fast read data
+#define FLASH_CMD_2READ					0xBB            // 2 x I/O read  command
+#define FLASH_CMD_4READ					0xEB            // 4 x I/O read  command
+#define FLASH_CMD_QREAD					0x6B            // 1I / 4O read command
+#define SPIC_LOWSPEED_SAMPLE_PHASE		1
+
 
 extern uint8_t __image1_bss_start__[];
 extern uint8_t __image1_bss_end__[];
 extern FLASH_InitTypeDef flash_init_para;
-extern _LONG_CALL_ void VECTOR_IrqDis(IRQn_Type IrqNum);
 _LONG_CALL_ void RCC_PeriphClockCmd(uint32_t APBPeriph, uint32_t APBPeriph_Clock, uint8_t NewState);
 _LONG_CALL_ void PINMUX_Ctrl(uint32_t  Function, uint32_t  PinLocation, bool Operation);
 _LONG_CALL_ void CPU_ClkSet(uint8_t CPU_CLOCK_SEL_VALUE);
@@ -146,6 +182,7 @@ _LONG_CALL_ void FLASH_RxCmd(uint8_t cmd, uint32_t read_len, uint8_t* read_data)
 _LONG_CALL_ void FLASH_Erase(uint32_t EraseType, uint32_t Address);
 _LONG_CALL_ uint32_t FLASH_ClockDiv(uint8_t Div);
 _LONG_CALL_ void FLASH_Erase(uint32_t EraseType, uint32_t Address);
+_LONG_CALL_ void FLASH_SetStatus(uint8_t Cmd, uint32_t Len, uint8_t* Status);
 _LONG_CALL_ void FLASH_TxData12B(uint32_t StartAddr, uint8_t DataPhaseLen, uint8_t* pData);
 _LONG_CALL_ void Cache_Enable(uint32_t Enable);
 _LONG_CALL_ void Cache_Flush(void);

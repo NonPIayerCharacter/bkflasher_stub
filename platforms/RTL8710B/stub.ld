@@ -43,14 +43,10 @@ SECTIONS
 	} > BOOTLOADER_RAM
 }
 
-SECTIONS 
-{ 
-	/* Bootloader symbol list */  
-	boot_export_symbol = 0x10002020;  
-} 
 SECTIONS
 {
 	Reset_Handler = 0x101;
+	memcmp = 0x991;
 	memcpy = 0x9c5;
 	memset = 0xa7d;
 	CPU_ClkSet = 0x24b1;
@@ -63,6 +59,7 @@ SECTIONS
 	FLASH_RxCmd = 0x7465;
 	FLASH_WaitBusy = 0x74cd;
 	FLASH_TxData12B = 0x7661;
+	FLASH_SetStatus = 0x7735;
 	FLASH_Erase = 0x7755;
 	FLASH_StructInit = 0x7c11;
 	FLASH_Init = 0x7ca1;
@@ -76,8 +73,8 @@ SECTIONS
 	UART_CharPut = 0xc00d;
 	UART_CharGet = 0xc011;
 	UART_Init = 0xc135;
-	VECTOR_IrqDis = 0xd765;
 	crc32_get = 0x11549;
 	sha256 = 0x4524d;
 	flash_init_para = 0x10000dec;
+	boot_export_symbol = 0x10002020;  
 }

@@ -184,38 +184,78 @@ typedef struct
 	__IO uint32_t flash_size;			/*!< SPIC flash size register,			Address offset: 0x124 */
 	__IO uint32_t flush_fifo;			/*!< SPIC flush FIFO register,			Address offset: 0x128 */
 } SPIC_TypeDef;
-#define SPI_FLASH_CTRL_BASE	0x48080000
-#define SPIC					((SPIC_TypeDef			*) SPI_FLASH_CTRL_BASE)
-#define FLASH_CMD_PP				0x02            //Page Program
-#define BIT_CMD_CH(x)				(((x) & 0x00000003) << 20)
-#define BIT_DATA_CH(x)			(((x) & 0x00000003) << 18)
-#define BIT_ADDR_CH(x)			(((x) & 0x00000003) << 16)
-#define BIT_TMOD(x)				(((x) & 0x00000003) << 8)
-#define BIT_SCPOL					(0x00000001 << 7)
-#define BIT_SCPH					(0x00000001 << 6)
-
-typedef int32_t IRQn_Type;
-typedef void (*HAL_VECTOR_FUN) (void);
-typedef uint32_t(*IRQ_FUN)(void* Data);
+#define BIT_CMD_CH(x)					(((x) & 0x00000003) << 20)
+#define BIT_DATA_CH(x)					(((x) & 0x00000003) << 18)
+#define BIT_ADDR_CH(x)					(((x) & 0x00000003) << 16)
+#define BIT_TMOD(x)						(((x) & 0x00000003) << 8)
+#define BIT_SCPOL						(0x00000001 << 7)
+#define BIT_SCPH						(0x00000001 << 6)
 
 #define BIT(x)							(1 << x)
 #define _LONG_CALL_						__attribute__ ((long_call))
 #define FLASH_BASE						0x08000000
 #define LOG_UART_REG_BASE				0x48012000
 #define SYSTEM_CTRL_BASE_LP				0x48000000
+#define SPI_FLASH_CTRL_BASE				0x48080000
 #define REG_LP_CLK_CTRL0				0x0210
 #define BIT_SHIFT_FLASH_CLK_SEL			9
 #define BIT_MASK_FLASH_CLK_SEL			0x03
+#define BIT_SHIFT_FLASH_CLK_ANA4M		(0x0 << BIT_SHIFT_FLASH_CLK_SEL)
 #define BIT_SHIFT_FLASH_CLK_XTAL		(0x1 << BIT_SHIFT_FLASH_CLK_SEL)
+#define BIT_SHIFT_FLASH_CLK_PLL			(0x2 << BIT_SHIFT_FLASH_CLK_SEL)
 #define UART2_DEV						((UART_TypeDef*)LOG_UART_REG_BASE)
+#define SPIC							((SPIC_TypeDef*) SPI_FLASH_CTRL_BASE)
 #define EraseChip						0
 #define EraseBlock						1
 #define EraseSector						2
+#define FLASH_ID_OTHERS					0
+#define FLASH_ID_MXIC					1
+#define FLASH_ID_WINBOND				2
+#define FLASH_ID_MICRON					3
+#define FLASH_ID_EON					4
+#define FLASH_ID_GD						5
+#define FLASH_ID_BOHONG					6
+#define ReadQuadIOMode					0
+#define ReadQuadOMode					1
+#define ReadDualIOMode					2
+#define ReadDualOMode 					3
+#define ReadOneMode						4
+#define SpicOneBitMode					0
+#define SpicDualBitMode					1
+#define SpicQuadBitMode					2
+#define BIT_CTRLR0_CH					(0x00000001 << 12)
+#define BIT_PRM_EN						(0x00000001 << 11)
+#define BIT_WR_BLOCKING					(0x00000001 << 9)
+#define BIT_WR_QUAD_II					(0x00000001 << 8)
+#define BIT_WR_QUAD_I					(0x00000001 << 7)
+#define BIT_WR_DUAL_II					(0x00000001 << 6)
+#define BIT_WR_DUAL_I					(0x00000001 << 5)
+#define BIT_RD_QUAD_IO					(0x00000001 << 4)
+#define BIT_RD_QUAD_O					(0x00000001 << 3)
+#define BIT_RD_DUAL_IO					(0x00000001 << 2)
+#define BIT_RD_DUAL_I					(0x00000001 << 1)
+#define BIT_FRD_SINGEL					(0x00000001)
+#define SPIC_VALID_CMD_MASK				(0x7fff)
+#define DUAL_PRM_CYCLE_NUM				4
+#define QUAD_PRM_CYCLE_NUM				2
+#define FLASH_DM_CYCLE_2O				0x08
+#define FLASH_DM_CYCLE_2IO				0x04
+#define FLASH_DM_CYCLE_4O				0x08
+#define FLASH_DM_CYCLE_4IO				0x06
+#define FLASH_CMD_PP					0x02            //Page Program
+#define FLASH_CMD_READ					0x03            //read data
+#define FLASH_CMD_DREAD					0x3B            //Double Output Mode command
+#define FLASH_CMD_FREAD					0x0B            //fast read data
+#define FLASH_CMD_2READ					0xBB            // 2 x I/O read  command
+#define FLASH_CMD_4READ					0xEB            // 4 x I/O read  command
+#define FLASH_CMD_QREAD					0x6B            // 1I / 4O read command
+
+#define SPIC_LOWSPEED_SAMPLE_PHASE	1
 
 extern uint8_t __image1_bss_start__[];
 extern uint8_t __image1_bss_end__[];
 extern FLASH_InitTypeDef flash_init_para;
-extern _LONG_CALL_ void irq_disable(IRQn_Type IrqNum);
+extern uint32_t SPIC_CALIB_PATTERN[2];
 _LONG_CALL_ void RCC_PeriphClockCmd(uint32_t APBPeriph, uint32_t APBPeriph_Clock, uint8_t NewState);
 _LONG_CALL_ void PINMUX_Ctrl(uint32_t  Function, uint32_t  PinLocation, bool Operation);
 _LONG_CALL_ void CPU_ClkSet(uint8_t CPU_CLOCK_SEL_VALUE);
@@ -227,6 +267,7 @@ _LONG_CALL_ void FLASH_RxCmd(uint8_t cmd, uint32_t read_len, uint8_t* read_data)
 _LONG_CALL_ void FLASH_Erase(uint32_t EraseType, uint32_t Address);
 _LONG_CALL_ uint32_t FLASH_ClockDiv(uint8_t Div);
 _LONG_CALL_ void FLASH_Erase(uint32_t EraseType, uint32_t Address);
+_LONG_CALL_ void FLASH_SetStatus(uint8_t Cmd, uint32_t Len, uint8_t* Status);
 _LONG_CALL_ void FLASH_TxData256B(uint32_t StartAddr, uint32_t DataPhaseLen, uint8_t* pData);
 _LONG_CALL_ void FLASH_TxData12B(uint32_t StartAddr, uint8_t DataPhaseLen, uint8_t* pData);
 _LONG_CALL_ void FLASH_WaitBusy(uint32_t WaitType);

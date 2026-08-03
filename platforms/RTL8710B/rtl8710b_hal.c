@@ -29,22 +29,99 @@ void uart_init(void)
 	uart_set_baud(115200U);
 }
 
+void flash_rx_mode_switch(uint8_t read_mode)
+{
+	uint8_t tmp_dc = 0, status = 0, spic_mode = 0, i;
+	uint32_t pdata[2];
+	pdata[0] = 0x96969999;
+	pdata[1] = 0xFC66CC3F;
+
+	for(i = read_mode; i < 5; i++)
+	{
+		if(i == ReadQuadIOMode)
+		{
+			flash_init_para.FALSH_quad_valid_cmd = (BIT_WR_BLOCKING | BIT_RD_QUAD_IO);
+
+			tmp_dc = flash_init_para.FLASH_rd_dummy_cyle[2];
+			flash_init_para.FLASH_rd_dummy_cyle[2] -= QUAD_PRM_CYCLE_NUM;
+
+			spic_mode = SpicQuadBitMode;
+			flash_init_para.FLASH_cur_cmd = FLASH_CMD_4READ;
+		}
+		else if(i == ReadQuadOMode)
+		{
+			flash_init_para.FALSH_quad_valid_cmd = (BIT_WR_BLOCKING | BIT_RD_QUAD_O);
+
+			flash_init_para.FLASH_rd_dummy_cyle[2] = FLASH_DM_CYCLE_4O;
+			tmp_dc = flash_init_para.FLASH_rd_dummy_cyle[2];
+
+			spic_mode = SpicQuadBitMode;
+			flash_init_para.FLASH_cur_cmd = FLASH_CMD_QREAD;
+		}
+		else if(i == ReadDualIOMode)
+		{
+			flash_init_para.FALSH_dual_valid_cmd = (BIT_WR_BLOCKING | BIT_FRD_SINGEL);
+
+			tmp_dc = flash_init_para.FLASH_rd_dummy_cyle[1];
+			flash_init_para.FLASH_rd_dummy_cyle[1] -= DUAL_PRM_CYCLE_NUM;
+
+			spic_mode = SpicDualBitMode;
+			flash_init_para.FLASH_cur_cmd = FLASH_CMD_2READ;
+		}
+		else if(i == ReadDualOMode)
+		{
+			flash_init_para.FALSH_dual_valid_cmd = (BIT_WR_BLOCKING | BIT_RD_DUAL_I);
+
+			flash_init_para.FLASH_rd_dummy_cyle[1] = FLASH_DM_CYCLE_2O;
+			tmp_dc = flash_init_para.FLASH_rd_dummy_cyle[1];
+
+			spic_mode = SpicDualBitMode;
+			flash_init_para.FLASH_cur_cmd = FLASH_CMD_DREAD;
+		}
+		else
+		{
+			tmp_dc = flash_init_para.FLASH_rd_dummy_cyle[0];
+			spic_mode = SpicOneBitMode;
+			flash_init_para.FLASH_cur_cmd = FLASH_CMD_READ;
+		}
+
+		if(flash_init_para.FLASH_Id == FLASH_ID_MICRON)
+		{
+			FLASH_RxCmd(0x85, 1, &status);
+
+			status = (status & 0x0f) | (tmp_dc << 4);
+			FLASH_SetStatus(0x81, 1, &status);
+		}
+
+		flash_init_para.FLASH_rd_sample_phase = SPIC_LOWSPEED_SAMPLE_PHASE;
+		Cache_Enable(0);
+		RCC_PeriphClockCmd(APBPeriph_FLASH, APBPeriph_FLASH_CLOCK, 0);
+		FLASH_CalibrationNewCmd(0);
+		FLASH_ClockDiv(0);
+		RCC_PeriphClockCmd(APBPeriph_FLASH, APBPeriph_FLASH_CLOCK, 1);
+		FLASH_Init(spic_mode);
+		Cache_Enable(1);
+
+		Cache_Flush();
+
+		if(memcmp((void*)FLASH_BASE, pdata, 8) == 0)
+		{
+			break;
+		}
+	}
+}
+
 void flash_init(void)
 {
-	FLASH_CalibrationNewCmd(0);
-	FLASH_ClockDiv(0);
-	RCC_PeriphClockCmd(APBPeriph_FLASH, APBPeriph_FLASH_CLOCK, 1);
+	Cache_Enable(0);
 	PINMUX_Ctrl(10, 0, 1);
 	FLASH_StructInit(&flash_init_para);
-	if(!FLASH_Init(2)) if(!FLASH_Init(1)) FLASH_Init(0);
-
+	flash_rx_mode_switch(0);
 	FLASH_RxCmd(flash_init_para.FLASH_cmd_rd_id, 3, (uint8_t*)&flash_id);
 	if((flash_id & 0xFF) == 0x20)
 	{
 		flash_init_para.FLASH_cmd_chip_e = 0xC7;
 	}
-
-	Cache_Enable(1);
 }
 
 int FLASH_WriteStream(uint32_t address, uint32_t len, const uint8_t* data)
@@ -191,12 +268,11 @@ extern int main(void);
 
 __attribute__((used)) void flasher_stub(void)
 {
-	VECTOR_IrqDis(28);
+	__asm volatile ("cpsid i" : : : "memory");
 	memset((void*)__image1_bss_start__, 0, (__image1_bss_end__ - __image1_bss_start__));
 	RCC_PeriphClockCmd(APBPeriph_FLASH, APBPeriph_FLASH_CLOCK, 0);
 	CPU_ClkSet(0);
 	DelayUs(10);
-	Cache_Enable(0);
 	main();
 }
 
