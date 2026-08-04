@@ -114,7 +114,6 @@ typedef struct
 	__IO uint32_t FCR;				/*!< UART FIFO Control register,              			Address offset: 0x54*/
 } UART_TypeDef;
 
-#define BIT(x)							(1 << x)
 #define _LONG_CALL_						__attribute__ ((long_call))
 #define FLASH_BASE						0x08000000
 #define BIT_SOC_ACTCK_FLASH_EN			BIT(8)

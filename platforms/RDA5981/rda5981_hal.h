@@ -12,10 +12,6 @@
 #define FLASH_CTL_TX_FIFO_DATA_REG  (FLASH_CTL_REG_BASE + 0x08)
 #define FLASH_CTL_STATUS_REG        (FLASH_CTL_REG_BASE + 0x0C)
 #define FLASH_CTL_RX_FIFO_DATA_REG  (FLASH_CTL_REG_BASE + 0x10)
-//#define WRITE_REG32(REG, VAL)       ((*(volatile unsigned int*)(REG)) = (unsigned int)(VAL))
-#define OR_REG32(REG, VAL)          ((*(volatile unsigned int*)(REG)) |= (unsigned int)(VAL))
-#define WRITE_REG8(REG, VAL)        ((*(volatile unsigned char*)(REG)) = (unsigned char)(VAL))
-#define READ_REG32(addr)            (*((volatile unsigned int *)(addr)))
 #define RF_SPI_REG                  READ_REG32(0x4001301CUL)
 #define BIT31                       (1ul << 31)
 

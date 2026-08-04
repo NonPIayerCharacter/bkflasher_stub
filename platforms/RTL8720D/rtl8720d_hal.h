@@ -191,7 +191,6 @@ typedef struct
 #define BIT_SCPOL						(0x00000001 << 7)
 #define BIT_SCPH						(0x00000001 << 6)
 
-#define BIT(x)							(1 << x)
 #define _LONG_CALL_						__attribute__ ((long_call))
 #define FLASH_BASE						0x08000000
 #define LOG_UART_REG_BASE				0x48012000

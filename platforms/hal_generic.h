@@ -13,10 +13,16 @@
 #include "RTL8710B/rtl8710b_hal.h"
 #elif PLATFORM_RTL8720D
 #include "RTL8720D/rtl8720d_hal.h"
+#elif PLATFORM_ECR6600
+#include "ECR6600/ecr6600_hal.h"
 #endif
 
 #define REG32(a)				(*(volatile uint32_t *)(uintptr_t)(a))
+#define READ_REG32(addr)		(*((volatile unsigned int *)(addr)))
 #define WRITE_REG32(REG, VAL)	((*(volatile unsigned int*)(REG)) = (unsigned int)(VAL))
+#define OR_REG32(REG, VAL)		((*(volatile unsigned int*)(REG)) |= (unsigned int)(VAL))
+#define WRITE_REG8(REG, VAL)	((*(volatile unsigned char*)(REG)) = (unsigned char)(VAL))
+#define BIT(x)					(1 << x)
 
 /* Common OBK/Easy-Flasher custom-stub protocol.
  * These values are shared with the existing OBK custom stubs.

@@ -7,11 +7,13 @@ typedef struct
 	miniz_put_buffer_fn put_buffer;
 	void* ctx;
 } miniz_output_t;
+#ifndef NO_MINIZ_COMPRESSION
 #if PLATFORM_RDA5981
 mz_uint16 m_next[TDEFL_LZ_DICT_SIZE];
 __attribute__((section(".dram2")))
+#elif PLATFORM_ECR6600
+__attribute__((section(".iram")))
 #endif
-#ifndef NO_MINIZ_COMPRESSION
 static tdefl_compressor deflator;
 #endif
 #ifndef NO_MINIZ_DECOMPRESSION
