@@ -118,6 +118,7 @@ int flash_erase_range(uint32_t src, uint32_t len)
 int flash_erase_chip()
 {
 	flash_chip_erase();
+	return 1;
 }
 
 void flash_init(void)
@@ -139,7 +140,7 @@ int read_factory_mac(uint8_t mac[6])
 
 int read_efuse(void)
 {
-	efuse_read_series(0, (unsigned int*)cmd_buf, 0x80);
+	efuse_read_series(0, (unsigned int*)cmd_buf, 0x80 / 4);
 	return 0x80;
 }
 

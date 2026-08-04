@@ -243,10 +243,9 @@ int flash_erase_block(uint32_t addr)
 	return flash_erase_cmd(addr, SPIFLASH_CMD_BE);
 }
 
-int flash_chip_erase(void)
+void flash_chip_erase(void)
 {
 	flash_write_enable();
 	spi_cmd_none(SPIFLASH_CMD_CE);
 	flash_wait_busy();
-	return 0;
 }

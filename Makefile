@@ -26,7 +26,7 @@ HOST_CC ?= gcc
 MINIZ_FLAGS := -DTDEFL_LESS_MEMORY=1 -DMINIZ_NO_MALLOC -DMINIZ_NO_STDIO -DMINIZ_NO_TIME -DMINIZ_NO_ARCHIVE_APIS -DMINIZ_NO_ZLIB_COMPATIBLE_NAMES -DNDEBUG
 SHARED_FLAGS += -Isrc -Ithird_party/miniz -Iplatforms/$(PLATFORM) $(MINIZ_FLAGS) -DPLATFORM_$(PLATFORM)=1
 CFLAGS += $(SHARED_FLAGS)
-LDFLAGS += $(SHARED_FLAGS) #-Wl,--print-memory-usage
+LDFLAGS += $(SHARED_FLAGS) -Wl,--print-memory-usage
 
 SRCS_C += src/flasher_stub.c
 SRCS_C += src/stub_miniz.c
@@ -54,10 +54,9 @@ $(BUILD_DIR)/%.o : %.S | $(BUILD_DIR)
 	@echo "build $<"
 	@$(CC) $(CFLAGS) -c $< -o $@
 
-$(ELF): $(OBJS) #platforms/$(PLATFORM)/stub.ld
+$(ELF): $(OBJS)
 	@echo "link $<"
 	@$(CC) $(LDFLAGS) $^ -o $@
-	@$(OBJDUMP) -d $@ > $(ASM_OUT)
 	@$(SIZE) $@
 
 $(BIN): $(ELF)
