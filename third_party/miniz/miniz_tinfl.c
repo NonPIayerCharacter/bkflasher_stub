@@ -227,18 +227,6 @@ extern "C"
 
         bit_buf = num_bits = dist = counter = num_extra = r->m_zhdr0 = r->m_zhdr1 = 0;
         r->m_z_adler32 = r->m_check_adler32 = 1;
-        if (decomp_flags & TINFL_FLAG_PARSE_ZLIB_HEADER)
-        {
-            TINFL_GET_BYTE(1, r->m_zhdr0);
-            TINFL_GET_BYTE(2, r->m_zhdr1);
-            counter = (((r->m_zhdr0 * 256 + r->m_zhdr1) % 31 != 0) || (r->m_zhdr1 & 32) || ((r->m_zhdr0 & 15) != 8));
-            if (!(decomp_flags & TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF))
-                counter |= (((1U << (8U + (r->m_zhdr0 >> 4))) > 32768U) || ((out_buf_size_mask + 1) < (size_t)((size_t)1 << (8U + (r->m_zhdr0 >> 4)))));
-            if (counter)
-            {
-                TINFL_CR_RETURN_FOREVER(36, TINFL_STATUS_FAILED);
-            }
-        }
 
         do
         {
@@ -610,18 +598,6 @@ extern "C"
         bit_buf &= ~(~(tinfl_bit_buf_t)0 << num_bits);
         MZ_ASSERT(!num_bits); /* if this assert fires then we've read beyond the end of non-deflate/zlib streams with following data (such as gzip streams). */
 
-        if (decomp_flags & TINFL_FLAG_PARSE_ZLIB_HEADER)
-        {
-            for (counter = 0; counter < 4; ++counter)
-            {
-                mz_uint s;
-                if (num_bits)
-                    TINFL_GET_BITS(41, s, 8);
-                else
-                    TINFL_GET_BYTE(42, s);
-                r->m_z_adler32 = (r->m_z_adler32 << 8) | s;
-            }
-        }
         TINFL_CR_RETURN_FOREVER(34, TINFL_STATUS_DONE);
 
         TINFL_CR_FINISH
@@ -646,35 +622,6 @@ extern "C"
         r->m_dist_from_out_buf_start = dist_from_out_buf_start;
         *pIn_buf_size = pIn_buf_cur - pIn_buf_next;
         *pOut_buf_size = pOut_buf_cur - pOut_buf_next;
-        if ((decomp_flags & (TINFL_FLAG_PARSE_ZLIB_HEADER | TINFL_FLAG_COMPUTE_ADLER32)) && (status >= 0))
-        {
-            const mz_uint8 *ptr = pOut_buf_next;
-            size_t buf_len = *pOut_buf_size;
-            mz_uint32 i, s1 = r->m_check_adler32 & 0xffff, s2 = r->m_check_adler32 >> 16;
-            size_t block_len = buf_len % 5552;
-            while (buf_len)
-            {
-                for (i = 0; i + 7 < block_len; i += 8, ptr += 8)
-                {
-                    s1 += ptr[0], s2 += s1;
-                    s1 += ptr[1], s2 += s1;
-                    s1 += ptr[2], s2 += s1;
-                    s1 += ptr[3], s2 += s1;
-                    s1 += ptr[4], s2 += s1;
-                    s1 += ptr[5], s2 += s1;
-                    s1 += ptr[6], s2 += s1;
-                    s1 += ptr[7], s2 += s1;
-                }
-                for (; i < block_len; ++i)
-                    s1 += *ptr++, s2 += s1;
-                s1 %= 65521U, s2 %= 65521U;
-                buf_len -= block_len;
-                block_len = 5552;
-            }
-            r->m_check_adler32 = (s2 << 16) + s1;
-            if ((status == TINFL_STATUS_DONE) && (decomp_flags & TINFL_FLAG_PARSE_ZLIB_HEADER) && (r->m_check_adler32 != r->m_z_adler32))
-                status = TINFL_STATUS_ADLER32_MISMATCH;
-        }
         return status;
     }
 

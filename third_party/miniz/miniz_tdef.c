@@ -618,32 +618,6 @@ static mz_bool tdefl_compress_lz_codes(tdefl_compressor *d)
         *d->m_pLZ_flags = (mz_uint8)(*d->m_pLZ_flags >> d->m_num_flags_left);
         d->m_pLZ_code_buf -= (d->m_num_flags_left == 8);
 
-        if ((d->m_flags & TDEFL_WRITE_ZLIB_HEADER) && (!d->m_block_index))
-        {
-            const mz_uint8 cmf = 0x78;
-            mz_uint8 flg, flevel = 3;
-            mz_uint header, i, mz_un = sizeof(s_tdefl_num_probes) / sizeof(mz_uint);
-
-            /* Determine compression level by reversing the process in tdefl_create_comp_flags_from_zip_params() */
-            for (i = 0; i < mz_un; i++)
-                if (s_tdefl_num_probes[i] == (d->m_flags & 0xFFF))
-                    break;
-
-            if (i < 2)
-                flevel = 0;
-            else if (i < 6)
-                flevel = 1;
-            else if (i == 6)
-                flevel = 2;
-
-            header = cmf << 8 | (flevel << 6);
-            header += 31 - (header % 31);
-            flg = header & 0xFF;
-
-            TDEFL_PUT_BITS(cmf, 8);
-            TDEFL_PUT_BITS(flg, 8);
-        }
-
         TDEFL_PUT_BITS(flush == TDEFL_FINISH, 1);
 
         pSaved_output_buf = d->m_pOutput_buf;
@@ -689,15 +663,6 @@ static mz_bool tdefl_compress_lz_codes(tdefl_compressor *d)
                 if (d->m_bits_in)
                 {
                     TDEFL_PUT_BITS(0, 8 - d->m_bits_in);
-                }
-                if (d->m_flags & TDEFL_WRITE_ZLIB_HEADER)
-                {
-                    mz_uint i, a = d->m_adler32;
-                    for (i = 0; i < 4; i++)
-                    {
-                        TDEFL_PUT_BITS((a >> 24) & 0xFF, 8);
-                        a <<= 8;
-                    }
                 }
             }
             else
@@ -1156,25 +1121,6 @@ static MZ_FORCEINLINE void tdefl_find_match(tdefl_compressor *d, mz_uint lookahe
             cur_match_dist = 0;
             cur_match_len = d->m_saved_match_len ? d->m_saved_match_len : (TDEFL_MIN_MATCH_LEN - 1);
             cur_pos = d->m_lookahead_pos & TDEFL_LZ_DICT_SIZE_MASK;
-            if (d->m_flags & (TDEFL_RLE_MATCHES | TDEFL_FORCE_ALL_RAW_BLOCKS))
-            {
-                if ((d->m_dict_size) && (!(d->m_flags & TDEFL_FORCE_ALL_RAW_BLOCKS)))
-                {
-                    mz_uint8 c = d->m_dict[(cur_pos - 1) & TDEFL_LZ_DICT_SIZE_MASK];
-                    cur_match_len = 0;
-                    while (cur_match_len < d->m_lookahead_size)
-                    {
-                        if (d->m_dict[cur_pos + cur_match_len] != c)
-                            break;
-                        cur_match_len++;
-                    }
-                    if (cur_match_len < TDEFL_MIN_MATCH_LEN)
-                        cur_match_len = 0;
-                    else
-                        cur_match_dist = 1;
-                }
-            }
-            else
             {
                 tdefl_find_match(d, d->m_lookahead_pos, d->m_dict_size, d->m_lookahead_size, &cur_match_dist, &cur_match_len);
             }
@@ -1209,7 +1155,7 @@ static MZ_FORCEINLINE void tdefl_find_match(tdefl_compressor *d, mz_uint lookahe
             }
             else if (!cur_match_dist)
                 tdefl_record_literal(d, d->m_dict[MZ_MIN(cur_pos, sizeof(d->m_dict) - 1)]);
-            else if ((d->m_greedy_parsing) || (d->m_flags & TDEFL_RLE_MATCHES) || (cur_match_len >= 128))
+            else if ((d->m_greedy_parsing) || (cur_match_len >= 128))
             {
                 tdefl_record_match(d, cur_match_len, cur_match_dist);
                 len_to_move = cur_match_len;
@@ -1227,7 +1173,7 @@ static MZ_FORCEINLINE void tdefl_find_match(tdefl_compressor *d, mz_uint lookahe
             d->m_dict_size = MZ_MIN(d->m_dict_size + len_to_move, (mz_uint)TDEFL_LZ_DICT_SIZE);
             /* Check if it's time to flush the current LZ codes to the internal output buffer. */
             if ((d->m_pLZ_code_buf > &d->m_lz_code_buf[TDEFL_LZ_CODE_BUF_SIZE - 8]) ||
-                ((d->m_total_lz_bytes > 31 * 1024) && (((((mz_uint)(d->m_pLZ_code_buf - d->m_lz_code_buf) * 115) >> 7) >= d->m_total_lz_bytes) || (d->m_flags & TDEFL_FORCE_ALL_RAW_BLOCKS))))
+                ((d->m_total_lz_bytes > 31 * 1024) && (((((mz_uint)(d->m_pLZ_code_buf - d->m_lz_code_buf) * 115) >> 7) >= d->m_total_lz_bytes))))
             {
                 int n;
                 d->m_pSrc = pSrc;
@@ -1311,9 +1257,6 @@ static MZ_FORCEINLINE void tdefl_find_match(tdefl_compressor *d, mz_uint lookahe
             if (!tdefl_compress_normal(d))
                 return d->m_prev_return_status;
         }
-
-        if ((d->m_flags & (TDEFL_WRITE_ZLIB_HEADER | TDEFL_COMPUTE_ADLER32)) && (pIn_buf))
-            d->m_adler32 = (mz_uint32)mz_adler32(d->m_adler32, (const mz_uint8 *)pIn_buf, d->m_pSrc - (const mz_uint8 *)pIn_buf);
 
         if ((flush) && (!d->m_lookahead_size) && (!d->m_src_buf_left) && (!d->m_output_flush_remaining))
         {
@@ -1477,103 +1420,6 @@ static MZ_FORCEINLINE void tdefl_find_match(tdefl_compressor *d, mz_uint lookahe
             comp_flags |= TDEFL_RLE_MATCHES;
 
         return comp_flags;
-    }
-
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4204) /* nonstandard extension used : non-constant aggregate initializer (also supported by GNU C and C99, so no big deal) */
-#endif
-
-    /* Simple PNG writer function by Alex Evans, 2011. Released into the public domain: https://gist.github.com/908299, more context at
-     http://altdevblogaday.org/2011/04/06/a-smaller-jpg-encoder/.
-     This is actually a modification of Alex's original code so PNG files generated by this function pass pngcheck. */
-    void *tdefl_write_image_to_png_file_in_memory_ex(const void *pImage, int w, int h, int num_chans, size_t *pLen_out, mz_uint level, mz_bool flip)
-    {
-        /* Using a local copy of this array here in case MINIZ_NO_ZLIB_APIS was defined. */
-        static const mz_uint s_tdefl_png_num_probes[11] = { 0, 1, 6, 32, 16, 32, 128, 256, 512, 768, 1500 };
-        tdefl_compressor *pComp = (tdefl_compressor *)MZ_MALLOC(sizeof(tdefl_compressor));
-        tdefl_output_buffer out_buf;
-        int i, bpl = w * num_chans, y, z;
-        mz_uint32 c;
-        *pLen_out = 0;
-        if (!pComp)
-            return NULL;
-        if (w <= 0 || h <= 0 || w > 0xFFFF || h > 0xFFFF || num_chans < 1 || num_chans > 4)
-        {
-            MZ_FREE(pComp);
-            return NULL;
-        }
-        MZ_CLEAR_OBJ(out_buf);
-        out_buf.m_expandable = MZ_TRUE;
-        out_buf.m_capacity = 57 + MZ_MAX(64, (1 + bpl) * h);
-        if (NULL == (out_buf.m_pBuf = (mz_uint8 *)MZ_MALLOC(out_buf.m_capacity)))
-        {
-            MZ_FREE(pComp);
-            return NULL;
-        }
-        /* write dummy header */
-        for (z = 41; z; --z)
-            tdefl_output_buffer_putter(&z, 1, &out_buf);
-        /* compress image data */
-        tdefl_init(pComp, tdefl_output_buffer_putter, &out_buf, s_tdefl_png_num_probes[MZ_MIN(10, level)] | TDEFL_WRITE_ZLIB_HEADER);
-        for (y = 0; y < h; ++y)
-        {
-            tdefl_compress_buffer(pComp, &z, 1, TDEFL_NO_FLUSH);
-            tdefl_compress_buffer(pComp, (mz_uint8 *)pImage + (flip ? (h - 1 - y) : y) * bpl, bpl, TDEFL_NO_FLUSH);
-        }
-        if (tdefl_compress_buffer(pComp, NULL, 0, TDEFL_FINISH) != TDEFL_STATUS_DONE)
-        {
-            MZ_FREE(pComp);
-            MZ_FREE(out_buf.m_pBuf);
-            return NULL;
-        }
-        /* write real header */
-        *pLen_out = out_buf.m_size - 41;
-        {
-            static const mz_uint8 chans[] = { 0x00, 0x00, 0x04, 0x02, 0x06 };
-            mz_uint8 pnghdr[41] = { 0x89, 0x50, 0x4e, 0x47, 0x0d,
-                                    0x0a, 0x1a, 0x0a, 0x00, 0x00,
-                                    0x00, 0x0d, 0x49, 0x48, 0x44,
-                                    0x52, 0x00, 0x00, 0x00, 0x00,
-                                    0x00, 0x00, 0x00, 0x00, 0x08,
-                                    0x00, 0x00, 0x00, 0x00, 0x00,
-                                    0x00, 0x00, 0x00, 0x00, 0x00,
-                                    0x00, 0x00, 0x49, 0x44, 0x41,
-                                    0x54 };
-            pnghdr[18] = (mz_uint8)(w >> 8);
-            pnghdr[19] = (mz_uint8)w;
-            pnghdr[22] = (mz_uint8)(h >> 8);
-            pnghdr[23] = (mz_uint8)h;
-            pnghdr[25] = chans[num_chans];
-            pnghdr[33] = (mz_uint8)(*pLen_out >> 24);
-            pnghdr[34] = (mz_uint8)(*pLen_out >> 16);
-            pnghdr[35] = (mz_uint8)(*pLen_out >> 8);
-            pnghdr[36] = (mz_uint8)*pLen_out;
-            c = (mz_uint32)mz_crc32(MZ_CRC32_INIT, pnghdr + 12, 17);
-            for (i = 0; i < 4; ++i, c <<= 8)
-                ((mz_uint8 *)(pnghdr + 29))[i] = (mz_uint8)(c >> 24);
-            memcpy(out_buf.m_pBuf, pnghdr, 41);
-        }
-        /* write footer (IDAT CRC-32, followed by IEND chunk) */
-        if (!tdefl_output_buffer_putter("\0\0\0\0\0\0\0\0\x49\x45\x4e\x44\xae\x42\x60\x82", 16, &out_buf))
-        {
-            *pLen_out = 0;
-            MZ_FREE(pComp);
-            MZ_FREE(out_buf.m_pBuf);
-            return NULL;
-        }
-        c = (mz_uint32)mz_crc32(MZ_CRC32_INIT, out_buf.m_pBuf + 41 - 4, *pLen_out + 4);
-        for (i = 0; i < 4; ++i, c <<= 8)
-            (out_buf.m_pBuf + out_buf.m_size - 16)[i] = (mz_uint8)(c >> 24);
-        /* compute final size of file, grab compressed data buffer and return */
-        *pLen_out += 57;
-        MZ_FREE(pComp);
-        return out_buf.m_pBuf;
-    }
-    void *tdefl_write_image_to_png_file_in_memory(const void *pImage, int w, int h, int num_chans, size_t *pLen_out)
-    {
-        /* Level 6 corresponds to TDEFL_DEFAULT_MAX_PROBES or MZ_DEFAULT_LEVEL (but we can't depend on MZ_DEFAULT_LEVEL being available in case the zlib API's where #defined out) */
-        return tdefl_write_image_to_png_file_in_memory_ex(pImage, w, h, num_chans, pLen_out, 6, MZ_FALSE);
     }
 
 #ifndef MINIZ_NO_MALLOC

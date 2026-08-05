@@ -33,7 +33,6 @@ SRCS_C += src/stub_miniz.c
 SRCS_C += src/libc.c
 SRCS_C += third_party/miniz/miniz_tdef.c
 SRCS_C += third_party/miniz/miniz_tinfl.c
-SRCS_C += third_party/miniz/miniz.c
 SRCS_C += platforms/hal_generic.c
 
 OBJS := $(SRCS_S:%.S=$(BUILD_DIR)/%.o)

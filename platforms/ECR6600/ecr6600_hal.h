@@ -6,6 +6,9 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+#undef BUF_SIZE
+#define BUF_SIZE 1024
+
 #define SOC_PD_SMU_BASE					(0x00202000)
 #define SOC_RFC_BASE					(0x00203000)
 #define SOC_UART0_BASE					(0x00204000)
@@ -126,7 +129,6 @@ typedef enum
 	SPI_MODE_UNKNOW
 } E_SPI_MODE;
 
-
 typedef enum
 {
 	SPIFLASH_READ_CMD_03 = 0,
@@ -137,26 +139,6 @@ typedef enum
 	SPIFLASH_READ_CMD_EB,
 	SPIFLASH_READ_CMD_MAX
 } E_SPIFLASH_READ_CMD;
-
-typedef enum
-{
-	SPIFLASH_SCLK_DIV_0 = 0xFF,
-	SPIFLASH_SCLK_DIV_2 = 0x00,
-	SPIFLASH_SCLK_DIV_4 = 0x01,
-	SPIFLASH_SCLK_DIV_6 = 0x02,
-	SPIFLASH_SCLK_DIV_8 = 0x03,
-	SPIFLASH_SCLK_DIV_10 = 0x04
-} E_SPIFLASH_SCLK_DIV;
-
-typedef enum
-{
-	SPI_SCLK_DIV_0 = 0xFF,
-	SPI_SCLK_DIV_2 = 0x00,
-	SPI_SCLK_DIV_4 = 0x01,
-	SPI_SCLK_DIV_6 = 0x02,
-	SPI_SCLK_DIV_8 = 0x03,
-	SPI_SCLK_DIV_10 = 0x04
-} E_SPI_SCLK_DIV;
 
 int uart_data_tstc(unsigned int uart_base);
 //void uart_init_ecr(unsigned int uart_base);
@@ -170,11 +152,5 @@ void udelay(unsigned int delay);
 int spi_bus_ready(unsigned int baseAddr);
 int spi_fifo_reset(unsigned int baseAddr);
 int spi_rx_ready(unsigned int baseAddr);
-E_SPI_MODE flash_init_ecr(E_SPI_SCLK_DIV clk_div, E_SPIFLASH_READ_CMD xip_cmd);
-int flash_page_program(uint32_t addr, const uint8_t* buf, uint32_t len);
-int flash_quad_page_program(uint32_t addr, const uint8_t* buf, uint32_t len);
-int flash_erase_sector(uint32_t addr);
-int flash_erase_block(uint32_t addr);
-int flash_chip_erase(void);
 
 #endif

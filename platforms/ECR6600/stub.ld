@@ -37,11 +37,13 @@ SECTIONS
     .dlm (NOLOAD) :
     {
         *(.dlm*)
+        *(.dram2*)
     } > dlm_memory
 
     .iram (NOLOAD) :
     {
         *(.iram*)
+        *(.dram1*)
     } > iram_memory
 
     PROVIDE (_stack = 0x0007F9F0);

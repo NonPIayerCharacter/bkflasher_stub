@@ -1,7 +1,79 @@
 #include "../hal_generic.h"
+#include <nds32_intrinsic.h>
 
 unsigned int g_efuse_ctrl = 0;
-extern E_SPI_MODE spi_mode;
+E_SPI_MODE spi_mode = SPI_MODE_STANDARD;
+
+static int spi_cmd_none(uint8_t cmd)
+{
+	if(!spi_bus_ready(SOC_SPI0_BASE)) return -1;
+	if(spi_fifo_reset(SOC_SPI0_BASE)) return -2;
+
+	WRITE_REG32(SOC_SPI0_BASE + 0x20, SPI_TRANSCTRL_CMD_EN | SPI_TRANSCTRL_TRAMODE_NONE);
+	WRITE_REG32(SOC_SPI0_BASE + 0x24, cmd);
+
+	return 0;
+}
+
+static uint32_t spi_read_cmd(uint8_t cmd, uint32_t len)
+{
+	uint32_t enc = READ_REG32(SOC_PD_APB_ENCRYPT_EN);
+	WRITE_REG32(SOC_PD_APB_ENCRYPT_EN, APB_WRIT_NOT_ENCRYPT);
+	if(!spi_bus_ready(SOC_SPI0_BASE)) goto fail;
+	if(spi_fifo_reset(SOC_SPI0_BASE)) goto fail;
+	WRITE_REG32(SOC_SPI0_BASE + 0x20, SPI_TRANSCTRL_CMD_EN | SPI_TRANSCTRL_TRAMODE_RO | SPI_TRANSCTRL_RCNT(len - 1));
+	WRITE_REG32(SOC_SPI0_BASE + 0x24, cmd);
+	if(!spi_rx_ready(SOC_SPI0_BASE))  goto fail;
+	WRITE_REG32(SOC_PD_APB_ENCRYPT_EN, enc);
+	return READ_REG32(SOC_SPI0_BASE + 0x2c);
+
+fail:
+	WRITE_REG32(SOC_PD_APB_ENCRYPT_EN, enc);
+	return -1;
+}
+
+static void flash_write_enable(void)
+{
+	while(1)
+	{
+		spi_cmd_none(SPIFLASH_CMD_WREN);
+		if(spi_read_cmd(SPIFLASH_CMD_RDSR_1, 1) & SPIFLASH_STATUS_WEL) break;
+	}
+}
+
+static uint8_t flash_status(void)
+{
+	return (uint8_t)spi_read_cmd(SPIFLASH_CMD_RDSR_1, 1);
+}
+
+static void flash_wait_busy(void)
+{
+	while(flash_status() & SPIFLASH_STATUS_WIP);
+}
+
+static void flash_write_status(uint32_t cmd, uint32_t value, int len)
+{
+	unsigned int enc = READ_REG32(SOC_PD_APB_ENCRYPT_EN);
+	WRITE_REG32(SOC_PD_APB_ENCRYPT_EN, APB_WRIT_NOT_ENCRYPT);
+	flash_write_enable();
+	WRITE_REG32(SOC_SPI0_BASE + 0x20, SPI_TRANSCTRL_CMD_EN | SPI_TRANSCTRL_TRAMODE_WO | SPI_TRANSCTRL_WCNT(len - 1));
+	WRITE_REG32(SOC_SPI0_BASE + 0x24, cmd);
+	WRITE_REG32(SOC_SPI0_BASE + 0x2c, value);
+	flash_wait_busy();
+	WRITE_REG32(SOC_PD_APB_ENCRYPT_EN, enc);
+}
+
+static int flash_erase_cmd(uint32_t addr, uint8_t cmd)
+{
+	flash_write_enable();
+	if(!spi_bus_ready(SOC_SPI0_BASE)) return -1;
+	if(spi_fifo_reset(SOC_SPI0_BASE)) return -2;
+	WRITE_REG32(SOC_SPI0_BASE + 0x28, addr);
+	WRITE_REG32(SOC_SPI0_BASE + 0x20, SPI_TRANSCTRL_CMD_EN | SPI_TRANSCTRL_ADDR_EN | SPI_TRANSCTRL_TRAMODE_NONE);
+	WRITE_REG32(SOC_SPI0_BASE + 0x24, cmd);
+	flash_wait_busy();
+	return 0;
+}
 
 void uart_putc(uint8_t b)
 {
@@ -76,16 +148,42 @@ void uart_init(void)
 	uart_set_baud(115200U);
 }
 
+void nds32_dcache_invalidate(void)
+{
+	__nds32__cctl_l1d_invalall();
+	__nds32__msync_store();
+	__nds32__dsb();
+}
+
 void flash_program_page(uint32_t off, const uint8_t* data)
 {
+	flash_write_enable();
+
+	if(!spi_bus_ready(SOC_SPI0_BASE)) return;
+	if(spi_fifo_reset(SOC_SPI0_BASE)) return;
+
 	if(spi_mode == SPI_MODE_QUAD)
 	{
-		flash_quad_page_program(off, data, FLASH_PAGE_SIZE);
+		WRITE_REG32(SOC_SPI0_BASE + 0x20, SPI_TRANSCTRL_CMD_EN | SPI_TRANSCTRL_ADDR_EN | SPI_TRANSCTRL_TRAMODE_WO | SPI_TRANSCTRL_DUALQUAD_QUAD | SPI_TRANSCTRL_WCNT(FLASH_PAGE_SIZE - 1));
+		WRITE_REG32(SOC_SPI0_BASE + 0x24, SPIFLASH_CMD_QUAD_INPUT_PP);
 	}
 	else
 	{
-		flash_page_program(off, data, FLASH_PAGE_SIZE);
+		WRITE_REG32(SOC_SPI0_BASE + 0x20, SPI_TRANSCTRL_CMD_EN | SPI_TRANSCTRL_ADDR_EN | SPI_TRANSCTRL_TRAMODE_WO | SPI_TRANSCTRL_WCNT(FLASH_PAGE_SIZE - 1));
+		WRITE_REG32(SOC_SPI0_BASE + 0x24, SPIFLASH_CMD_PP);
 	}
+
+	uint32_t words = (FLASH_PAGE_SIZE + 3) / 4;
+
+	for(uint32_t i = 0; i < words; i++)
+	{
+		while(READ_REG32(SOC_SPI0_BASE + 0x34) & SPI_STATUS_TXFULL);
+		WRITE_REG32(SOC_SPI0_BASE + 0x28, off + i * 4);
+		WRITE_REG32(SOC_SPI0_BASE + 0x2c, ((uint32_t*)data)[i]);
+	}
+
+	flash_wait_busy();
+	nds32_dcache_invalidate();
 }
 
 int flash_erase_range(uint32_t src, uint32_t len)
@@ -102,29 +200,87 @@ int flash_erase_range(uint32_t src, uint32_t len)
 	{
 		if((cur % 0x10000U == 0) && (end - cur >= 0x10000U))
 		{
-			flash_erase_block(cur);
+			flash_erase_cmd(cur, SPIFLASH_CMD_BE);
 			cur += 0x10000U;
 		}
 		else
 		{
-			flash_erase_sector(cur);
+			flash_erase_cmd(cur, SPIFLASH_CMD_SE);
 			cur += 0x1000U;
 		}
 	}
+
+	nds32_dcache_invalidate();
 
 	return 1;
 }
 
 int flash_erase_chip()
 {
-	flash_chip_erase();
+	flash_write_enable();
+	spi_cmd_none(SPIFLASH_CMD_CE);
+	flash_wait_busy();
+	nds32_dcache_invalidate();
 	return 1;
 }
 
 void flash_init(void)
 {
 	WRITE_REG32(SOC_PD_SPI_CONFIG, REG32(SOC_PD_SPI_CONFIG) | 0x80);
-	flash_init_ecr(0xFF, 5);
+	OR_REG32(SOC_PD_CLK_EN_BASE0, SPI0_APB_CLK_BIT | FLASH_AHB_CLK_BIT);
+	WRITE_REG32(SOC_PD_SMU_BASE + 0x18, 0x80);
+
+	PIN_FUNC_SET(IO_MUX0_GPIO7, FUNC_GPIO7_MSPI_MOSI);
+	PIN_FUNC_SET(IO_MUX1_GPIO8, FUNC_GPIO8_MSPI_HOLD);
+	PIN_FUNC_SET(IO_MUX1_GPIO9, FUNC_GPIO9_MSPI_CLK);
+	PIN_FUNC_SET(IO_MUX1_GPIO10, FUNC_GPIO10_MSPI_CS0);
+	PIN_FUNC_SET(IO_MUX1_GPIO11, FUNC_GPIO11_MSPI_MISO);
+	PIN_FUNC_SET(IO_MUX1_GPIO12, FUNC_GPIO12_MSPI_WP);
+
+	spi_cmd_none(SPIFLASH_STATUS_RSTEN);
+	spi_cmd_none(SPIFLASH_STATUS_RST);
+	udelay(4 * 1000);
+	WRITE_REG32(SOC_SPI0_BASE + 0x40, (READ_REG32(SOC_SPI0_BASE + 0x40) & 0xffffff00) | 0xFF);
+	WRITE_REG32(SOC_SPI0_BASE + 0x50, (READ_REG32(SOC_SPI0_BASE + 0x50) & 0xf) | SPIFLASH_READ_CMD_EB);
+
+	flash_id = spi_read_cmd(SPIFLASH_CMD_RDID, 3) & 0xFFFFFF;
+
+	if(flash_id != 0xFFFFFF)
+	{
+		switch(flash_id)
+		{
+			case 0x16701c:
+			case 0x16301c:
+			case 0x15701c:
+				break;
+			case 0x146085:
+			case 0x1440c8:
+			case 0x1540c8:
+			case 0x15400b:
+			case 0x14400b:
+				flash_write_status(SPIFLASH_CMD_WRSR, SPIFLASH_STATUS_QE, 2);
+				break;
+			case 0x1560eb:
+				flash_write_status(SPIFLASH_CMD_WRSR, 0x0218, 2);
+				break;
+			case 0x156085:
+				flash_write_status(SPIFLASH_CMD_WRSR, SPIFLASH_STATUS_QE, 2);
+				flash_write_status(SPIFLASH_CMD_WRSR_2, SPIFLASH_STATUS_2_QE, 1);
+				break;
+			case 0x1820c2:
+			case 0x1720c2:
+				flash_write_status(SPIFLASH_CMD_WRSR, 0x40, 2);
+				break;
+			default:
+				flash_write_status(SPIFLASH_CMD_WRSR_2, SPIFLASH_STATUS_2_QE, 1);
+				break;
+		}
+		spi_mode = SPI_MODE_QUAD;
+	}
+	else
+	{
+		spi_mode = SPI_MODE_STANDARD;
+	}
 }
 
 int crc32_memory_hardware(uint32_t addr, uint32_t len, uint32_t* result)

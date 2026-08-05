@@ -8,11 +8,9 @@ typedef struct
 	void* ctx;
 } miniz_output_t;
 #ifndef NO_MINIZ_COMPRESSION
-#if PLATFORM_RDA5981
+#if PLATFORM_RDA5981 || PLATFORM_ECR6600
 mz_uint16 m_next[TDEFL_LZ_DICT_SIZE];
 __attribute__((section(".dram2")))
-#elif PLATFORM_ECR6600
-__attribute__((section(".iram")))
 #endif
 static tdefl_compressor deflator;
 #endif
@@ -38,7 +36,7 @@ int stub_miniz_deflate_raw(const volatile uint8_t* src, uint32_t len, uint8_t le
 	if(level < 1U || level > 10U) level = 5U;
 	miniz_output_t output = { put_buffer, put_ctx };
 	int flags = (int)tdefl_create_comp_flags_from_zip_params(level, -15, MZ_DEFAULT_STRATEGY);
-#if PLATFORM_RDA5981
+#if PLATFORM_RDA5981 || PLATFORM_ECR6600
 	deflator.m_next = m_next;
 #endif
 	if(tdefl_init(&deflator, deflate_output, &output, flags) != TDEFL_STATUS_OKAY) return 0;
