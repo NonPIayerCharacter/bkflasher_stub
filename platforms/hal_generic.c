@@ -88,3 +88,14 @@ uint32_t crc32_update_wire(uint32_t crc, uint8_t b)
 	}
 	return crc;
 }
+
+uint32_t crc32_memory_software(uint32_t addr, uint32_t len)
+{
+	uint32_t crc = 0xFFFFFFFFU;
+	const volatile uint8_t* p = (const volatile uint8_t*)(uintptr_t)addr;
+	for(uint32_t i = 0; i < len; i++)
+	{
+		crc = crc32_update_wire(crc, p[i]);
+	}
+	return crc;
+}

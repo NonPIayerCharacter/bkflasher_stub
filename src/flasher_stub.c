@@ -79,17 +79,6 @@ static void obk_send_flash_id_binary(uint8_t type)
 	obk_data_reply(type, payload, sizeof(payload), OBK_STATUS_SUCCESS);
 }
 
-static uint32_t crc32_memory_software(uint32_t addr, uint32_t len)
-{
-	uint32_t crc = 0xFFFFFFFFU;
-	const volatile uint8_t* p = (const volatile uint8_t*)(uintptr_t)addr;
-	for(uint32_t i = 0; i < len; i++)
-	{
-		crc = crc32_update_wire(crc, p[i]);
-	}
-	return crc;
-}
-
 static uint32_t crc32_memory(uint32_t addr, uint32_t len)
 {
 	uint32_t crc = 0xFFFFFFFFU;

@@ -15,6 +15,8 @@
 #include "RTL8720D/rtl8720d_hal.h"
 #elif PLATFORM_ECR6600
 #include "ECR6600/ecr6600_hal.h"
+#elif PLATFORM_RTL8710C
+#include "RTL8710C/rtl8710c_hal.h"
 #endif
 
 #define REG32(a)				(*(volatile uint32_t *)(uintptr_t)(a))
@@ -132,15 +134,17 @@ int sha256_memory_hardware(uint32_t addr, uint32_t len);
 
 int read_factory_mac(uint8_t mac[6]);
 
-int flash_range_is_erased(uint32_t off, uint32_t len);
+//int flash_range_is_erased(uint32_t off, uint32_t len);
 
-int flash_range_matches(uint32_t off, const uint8_t* data, uint32_t len);
+//int flash_range_matches(uint32_t off, const uint8_t* data, uint32_t len);
 
 int buffer_is_erased(const uint8_t* data, uint32_t len);
 
 uint32_t reverse_u32(uint32_t value);
 
 uint32_t crc32_update_wire(uint32_t crc, uint8_t b);
+
+uint32_t crc32_memory_software(uint32_t addr, uint32_t len);
 
 int read_efuse(void);
 

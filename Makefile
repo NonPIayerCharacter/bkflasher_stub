@@ -54,7 +54,7 @@ $(BUILD_DIR)/%.o : %.S | $(BUILD_DIR)
 	@$(CC) $(CFLAGS) -c $< -o $@
 
 $(ELF): $(OBJS)
-	@echo "link $<"
+	@echo "link $@"
 	@$(CC) $(LDFLAGS) $^ -o $@
 	@$(SIZE) $@
 
