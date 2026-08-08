@@ -373,6 +373,12 @@ void boot_soc_update_cpu_clk(void)
 	udelay(1);
 }
 
+void get_chip_data(void)
+{
+	memset(cmd_buf, 0, 16);
+	WRITE_REG32(cmd_buf, 0x4C7959C9); // ECR6600
+}
+
 extern int main(void);
 
 int boot_main(void)

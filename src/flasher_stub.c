@@ -4,8 +4,15 @@
 #if PLATFORM_RDA5981
 __attribute__((section(".dram2")))
 #endif
-uint8_t cmd_buf[BUF_SIZE] __attribute__((aligned(4)));
-static uint8_t xmodem_packet[1 + 3 + 1024 + 2] __attribute__((aligned(4)));
+__attribute__((aligned(4)))
+uint8_t cmd_buf[BUF_SIZE];
+__attribute__((aligned(4)))
+static uint8_t xmodem_packet[1 + 3 + 1024 + 2];
+static const uint16_t crc16_table[16] =
+{
+	0x0000, 0x1021, 0x2042, 0x3063, 0x4084, 0x50A5, 0x60C6, 0x70E7,
+	0x8108, 0x9129, 0xA14A, 0xB16B, 0xC18C, 0xD1AD, 0xE1CE, 0xF1EF
+};
 uint32_t flash_id;
 uint32_t flash_size;
 
@@ -14,11 +21,9 @@ static uint16_t crc16_xmodem(const uint8_t* data, uint32_t len)
 	uint16_t crc = 0U;
 	while(len--)
 	{
-		crc ^= ((uint16_t)(*data++)) << 8;
-		for(int i = 0; i < 8; i++)
-		{
-			crc = (crc & 0x8000U) ? (uint16_t)((crc << 1) ^ 0x1021U) : (uint16_t)(crc << 1);
-		}
+		uint8_t byte = *data++;
+		crc = (crc << 4) ^ crc16_table[((crc >> 12) ^ (byte >> 4)) & 0x0FU];
+		crc = (crc << 4) ^ crc16_table[((crc >> 12) ^ (byte)) & 0x0FU];
 	}
 	return crc;
 }
@@ -752,6 +757,11 @@ static void handle_obk_frame(void)
 			}
 			obk_data_reply(type, cmd_buf, len, OBK_STATUS_SUCCESS);
 			break;
+		}
+		case OBK_CMD_GET_CHIP_PRODUCT:
+		{
+			get_chip_data();
+			obk_data_reply(type, cmd_buf, 16, OBK_STATUS_SUCCESS);
 		}
 		default:
 			obk_ack(type, OBK_STATUS_TYPE_ERROR);

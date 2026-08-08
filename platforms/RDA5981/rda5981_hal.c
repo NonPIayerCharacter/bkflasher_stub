@@ -378,6 +378,12 @@ int sha256_memory_hardware(uint32_t addr, uint32_t len)
 	return 0;
 }
 
+void get_chip_data(void)
+{
+	memset(cmd_buf, 0, 16);
+	WRITE_REG32(cmd_buf, 0x7272742E); // RDA5981
+}
+
 extern int main(void);
 
 __attribute__((section(".Reset_Handler"), used, naked))

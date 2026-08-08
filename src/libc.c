@@ -11,6 +11,8 @@ void* memcpy(void* dest, const void* src, size_t len)
 	unsigned char* out = (unsigned char*)dest;
 	const unsigned char* in = (const unsigned char*)src;
 
+#ifndef LIGHT_MEMCPY
+
 	if(len >= 16U && (((uintptr_t)out ^ (uintptr_t)in) & 3U) == 0U)
 	{
 		while(len && ((uintptr_t)out & 3U))
@@ -41,6 +43,8 @@ void* memcpy(void* dest, const void* src, size_t len)
 		in = (const unsigned char*)(const void*)in32;
 	}
 
+#endif
+
 	while(len--) *out++ = *in++;
 	return result;
 }
@@ -49,17 +53,18 @@ void* memset(void* dest, int value, size_t len)
 {
 	void* result = dest;
 	unsigned char* out = (unsigned char*)dest;
-	unsigned char byte = (unsigned char)value;
+
+#ifndef LIGHT_MEMSET
 
 	if(len >= 16U)
 	{
 		while((uintptr_t)out & 3U)
 		{
-			*out++ = byte;
+			*out++ = (unsigned char)value;
 			len--;
 		}
 
-		alias_u32 word = (alias_u32)byte * 0x01010101U;
+		alias_u32 word = (alias_u32)value * 0x01010101U;
 		alias_u32* out32 = (alias_u32*)(void*)out;
 		while(len >= 16U)
 		{
@@ -79,7 +84,9 @@ void* memset(void* dest, int value, size_t len)
 		out = (unsigned char*)(void*)out32;
 	}
 
-	while(len--) *out++ = byte;
+#endif
+
+	while(len--) *out++ = (unsigned char)value;
 	return result;
 }
 

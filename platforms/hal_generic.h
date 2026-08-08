@@ -17,14 +17,20 @@
 #include "ECR6600/ecr6600_hal.h"
 #elif PLATFORM_RTL8710C
 #include "RTL8710C/rtl8710c_hal.h"
+#elif PLATFORM_GD32VW553
+#include "GD32VW553/gd32vw553_hal.h"
 #endif
 
+#ifndef REG32
 #define REG32(a)				(*(volatile uint32_t *)(uintptr_t)(a))
+#endif
 #define READ_REG32(addr)		(*((volatile unsigned int *)(addr)))
 #define WRITE_REG32(REG, VAL)	((*(volatile unsigned int*)(REG)) = (unsigned int)(VAL))
 #define OR_REG32(REG, VAL)		((*(volatile unsigned int*)(REG)) |= (unsigned int)(VAL))
 #define WRITE_REG8(REG, VAL)	((*(volatile unsigned char*)(REG)) = (unsigned char)(VAL))
+#ifndef BIT
 #define BIT(x)					(1 << x)
+#endif
 
 /* Common OBK/Easy-Flasher custom-stub protocol.
  * These values are shared with the existing OBK custom stubs.
@@ -38,6 +44,7 @@
 #define OBK_CMD_FLASH_CHIP_ERASE   0x05U
 #define OBK_CMD_BAUD_CHANGE        0x07U
 #define OBK_CMD_FLASH_SHA256       0x09U
+#define OBK_CMD_GET_CHIP_PRODUCT   0x20U // returns 16 bytes, first 4 - platform name CRC32, second 4 - chip id if possible, last 8 - extra
 #define OBK_CMD_FLASH_CRC32        0x8FU
 #define OBK_CMD_FLASH_ID           0x90U
 #define OBK_CMD_FLASH_XMODEM_DL    0x91U  /* host -> target flash write */
@@ -147,6 +154,8 @@ uint32_t crc32_update_wire(uint32_t crc, uint8_t b);
 uint32_t crc32_memory_software(uint32_t addr, uint32_t len);
 
 int read_efuse(void);
+
+void get_chip_data(void);
 
 static inline uint32_t load_le32(const uint8_t* p)
 {
