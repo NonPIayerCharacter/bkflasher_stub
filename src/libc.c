@@ -5,6 +5,7 @@
 
 typedef uint32_t alias_u32 __attribute__((may_alias));
 
+__attribute__((used))
 void* memcpy(void* dest, const void* src, size_t len)
 {
 	void* result = dest;
@@ -49,6 +50,7 @@ void* memcpy(void* dest, const void* src, size_t len)
 	return result;
 }
 
+__attribute__((used))
 void* memset(void* dest, int value, size_t len)
 {
 	void* result = dest;

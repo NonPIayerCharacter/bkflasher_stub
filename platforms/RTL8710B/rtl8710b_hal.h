@@ -114,14 +114,69 @@ typedef struct
 	__IO uint32_t FCR;				/*!< UART FIFO Control register,              			Address offset: 0x54*/
 } UART_TypeDef;
 
+typedef struct
+{
+	__IO uint32_t ctrlr0;				/*!< SPIC control register0,		Address offset: 0x000 */
+	__IO uint32_t ctrlr1;				/*!< SPIC control register1,		Address offset: 0x004 */
+	__IO uint32_t ssienr;				/*!< SPIC enable register,		Address offset: 0x008 */
+	__IO uint32_t mwcr;					/*!< N/A,					Address offset: 0x00C */
+	__IO uint32_t ser;					/*!< SPIC slave enable register,	Address offset: 0x010 */
+	__IO uint32_t baudr;				/*!< SPIC baudrate select register,	Address offset: 0x014 */
+	__IO uint32_t txftlr;				/*!< SPIC transmit FIFO threshold level,	Address offset: 0x018 */
+	__IO uint32_t rxftlr;				/*!< SPIC receive FIFO threshold level,	Address offset: 0x01C */
+	__IO uint32_t txflr;				/*!< SPIC transmit FIFO level register,	Address offset: 0x020 */
+	__IO uint32_t rxflr;				/*!< SPIC receive FIFO level register,	Address offset: 0x024 */
+	__IO uint32_t sr;					/*!< SPIC status register,				Address offset: 0x028 */
+	__IO uint32_t imr;					/*!< SPIC interrupt mask register,		Address offset: 0x02C */
+	__IO uint32_t isr;					/*!< SPIC interrupt status register,		Address offset: 0x030 */
+	__IO uint32_t risr;					/*!< SPIC raw interrupt status register,	Address offset: 0x034 */
+	__IO uint32_t txoicr;				/*!< SPIC transmit FIFO overflow interrupt clear register,	Address offset: 0x038 */
+	__IO uint32_t rxoicr;				/*!< SPIC receive FIFO overflow interrupt clear register,	Address offset: 0x03C */
+	__IO uint32_t rxuicr;				/*!< SPIC receive FIFO underflow interrupt clear register,	Address offset: 0x040 */
+	__IO uint32_t msticr;				/*!< SPIC master error interrupt clear register,	Address offset: 0x044 */
+	__IO uint32_t icr;					/*!< SPIC interrupt clear register,	Address offset: 0x048 */
+	__IO uint32_t dmacr;				/*!< N/A,					Address offset: 0x04C */
+	__IO uint32_t dmatdlr;				/*!< N/A,					Address offset: 0x050 */
+	__IO uint32_t dmardlr;				/*!< N/A,					Address offset: 0x054 */
+	__IO uint32_t idr;					/*!< SPIC Identiation register,		Address offset: 0x058 */
+	__IO uint32_t spi_flash_version;	/*!< SPIC version ID register,		Address offset: 0x05C */
+	union
+	{
+		__IO uint8_t  byte;
+		__IO uint16_t half;
+		__IO uint32_t word;
+	} dr[32];							/*!< SPIC data register,					Address offset: 0x060~0x0DC */
+	__IO uint32_t rd_fast_single;		/*!< Fast read data command of SPI Flash,	Address offset: 0x0E0 */
+	__IO uint32_t rd_dual_o;			/*!< Dual output read command of SPI Flash,	Address offset: 0x0E4 */
+	__IO uint32_t rd_dual_io;			/*!< Dual I/O read command of SPI Flash,	Address offset: 0x0E8 */
+	__IO uint32_t rd_quad_o; 			/*!< Quad output read command of SPI Flash,	Address offset: 0x0EC */
+	__IO uint32_t rd_quad_io;			/*!< Quad I/O read command of SPI Flash,	Address offset: 0x0F0 */
+	__IO uint32_t wr_single;			/*!< Page program command of SPI Flash,	Address offset: 0x0F4 */
+	__IO uint32_t wr_dual_i;			/*!< Dual data input program command of SPI Flash,			Address offset: 0x0F8 */
+	__IO uint32_t wr_dual_ii;			/*!< Dual address and data input program command of SPI Flash,	Address offset: 0x0FC */
+	__IO uint32_t wr_quad_i;			/*!< Quad data input program command of SPI Flash,			Address offset: 0x100 */
+	__IO uint32_t wr_quad_ii;			/*!< Quad address and data input program command of SPI Flash,	Address offset: 0x104 */
+	__IO uint32_t wr_enable;			/*!< Write enabe command of SPI Flash,	Address offset: 0x108 */
+	__IO uint32_t rd_status;			/*!< Read status command of SPI Flash,	Address offset: 0x10C */
+	__IO uint32_t ctrlr2;				/*!< SPIC control register2,			Address offset: 0x110 */
+	__IO uint32_t fbaudr;				/*!< SPIC fast baudrate select,			Address offset: 0x114 */
+	__IO uint32_t addr_length;			/*!< SPIC address length register,		Address offset: 0x118 */
+	__IO uint32_t auto_length;			/*!< SPIC auto address length register,	Address offset: 0x11C */
+	__IO uint32_t valid_cmd;			/*!< SPIC valid command register,		Address offset: 0x120 */
+	__IO uint32_t flash_size;			/*!< SPIC flash size register,			Address offset: 0x124 */
+	__IO uint32_t flush_fifo;			/*!< SPIC flush FIFO register,			Address offset: 0x128 */
+} SPIC_TypeDef;
+
 #define _LONG_CALL_						__attribute__ ((long_call))
 #define FLASH_BASE						0x08000000
 #define BIT_SOC_ACTCK_FLASH_EN			BIT(8)
 #define BIT_SOC_FLASH_EN				BIT(4)
 #define APBPeriph_FLASH					BIT_SOC_FLASH_EN
 #define APBPeriph_FLASH_CLOCK			BIT_SOC_ACTCK_FLASH_EN
+#define SPI_FLASH_CTRL_BASE				0x40020000
 #define LOG_UART_REG_BASE				0x40003000
 #define UART2_DEV						((UART_TypeDef*)LOG_UART_REG_BASE)
+#define SPIC							((SPIC_TypeDef*)SPI_FLASH_CTRL_BASE)
 #define EraseChip						0
 #define EraseBlock						1
 #define EraseSector						2
@@ -166,6 +221,12 @@ typedef struct
 #define FLASH_CMD_QREAD					0x6B            // 1I / 4O read command
 #define SPIC_LOWSPEED_SAMPLE_PHASE		1
 
+#define BIT_CMD_CH(x)				(((x) & 0x00000003) << 20)
+#define BIT_DATA_CH(x)			(((x) & 0x00000003) << 18)
+#define BIT_ADDR_CH(x)			(((x) & 0x00000003) << 16)
+#define BIT_TMOD(x)				(((x) & 0x00000003) << 8)
+#define BIT_SCPOL					(0x00000001 << 7)
+#define BIT_SCPH					(0x00000001 << 6)
 
 extern uint8_t __image1_bss_start__[];
 extern uint8_t __image1_bss_end__[];
@@ -193,5 +254,6 @@ _LONG_CALL_ void UART_SetBaud(UART_TypeDef* UARTx, uint32_t BaudRate);
 _LONG_CALL_ uint32_t crc32_get(void* addr, uint32_t length);
 _LONG_CALL_ extern uint8_t EFUSE_LogicalMap_Read(uint8_t* pbuf);
 _LONG_CALL_ void sha256(const unsigned char* input, size_t ilen, unsigned char output[32], int is224);
+_LONG_CALL_ extern uint32_t EFUSE_OneByteReadROM(uint32_t CtrlSetting, uint16_t Addr, uint8_t* Data, uint8_t L25OutVoltage);
 
 #endif

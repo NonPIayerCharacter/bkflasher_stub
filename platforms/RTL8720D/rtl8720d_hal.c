@@ -116,6 +116,7 @@ void flash_rx_mode_switch(uint8_t read_mode)
 void flash_init(void)
 {
 	FLASH_StructInit(&flash_init_para);
+	RCC_PeriphClockCmd(0x80100000, 0x40100000, 1); // enable gpio
 	flash_rx_mode_switch(0);
 	FLASH_RxCmd(flash_init_para.FLASH_cmd_rd_id, 3, (uint8_t*)&flash_id);
 	if((flash_id & 0xFF) == 0x20)
@@ -124,156 +125,10 @@ void flash_init(void)
 	}
 }
 
-void FLASH_TxData256B_RAM(uint32_t StartAddr, uint32_t DataPhaseLen, uint8_t* pData)
-{
-	SPIC_TypeDef* spi_flash = SPIC;
-	uint32_t tx_num = 0;
-	uint32_t ctrl0 = spi_flash->ctrlr0;
-	uint8_t addrbyte[4];
-	uint8_t fifo_alarm_level = 28;
-
-	/* write enable cmd */
-	FLASH_WriteEn();
-
-	/* disable SPI_FLASH user mode */
-	spi_flash->ssienr = 0;
-
-	/* set with TX mode and one bit mode */
-	spi_flash->ctrlr0 &= ~(BIT_TMOD(3) | BIT_CMD_CH(3) | BIT_ADDR_CH(3) | BIT_DATA_CH(3));
-	spi_flash->addr_length = flash_init_para.FLASH_addr_phase_len;
-
-	/* set write cmd & address to fifo */
-	addrbyte[3] = (StartAddr & 0xFF000000) >> 24;
-	addrbyte[2] = (StartAddr & 0xFF0000) >> 16;
-	addrbyte[1] = (StartAddr & 0xFF00) >> 8;
-	addrbyte[0] = StartAddr & 0xFF;
-
-	if(flash_init_para.FLASH_addr_phase_len == 3)
-		spi_flash->dr[0].word = FLASH_CMD_PP | (addrbyte[2] << 8) | (addrbyte[1] << 16) | (addrbyte[0] << 24);
-	else if(flash_init_para.FLASH_addr_phase_len == 0)
-	{
-		spi_flash->dr[0].byte = FLASH_CMD_PP;
-		spi_flash->dr[0].word = (addrbyte[3]) | (addrbyte[2] << 8) | (addrbyte[1] << 16) | (addrbyte[0] << 24);
-	}
-
-	FLASH_SW_CS_Control(0);
-	/* enable SPI_FLASH user mode */
-	spi_flash->ssienr = 1;
-
-	tx_num = 0;
-	while(tx_num < DataPhaseLen)
-	{
-		/* flow control*/
-		if((spi_flash->txflr & 0x1F) <= fifo_alarm_level)
-		{
-			spi_flash->dr[0].word = *(uint32_t*)(pData + tx_num);
-			tx_num += 4;
-		}
-		else
-		{
-			while((spi_flash->sr & 0x3) == 0x3);
-		}
-	}
-	FLASH_SW_CS_Control(1);
-
-	/* wait spic busy done */
-	FLASH_WaitBusy(0);
-
-	/* disable SPI_FLASH user mode */
-	spi_flash->ssienr = 0;
-
-	/* wait write busy done */
-	FLASH_WaitBusy(2);
-
-	/* backup bitmode */
-	spi_flash->ctrlr0 = ctrl0;
-}
-
-int FLASH_WriteStream(uint32_t address, uint32_t len, const uint8_t* data)
-{
-	// Check address: 4byte aligned & page(256bytes) aligned
-	uint32_t page_begin = address & (~0xff);
-	uint32_t page_end = (address + len) & (~0xff);
-	uint32_t page_cnt = ((page_end - page_begin) >> 8) + 1;
-
-	uint32_t addr_begin = address;
-	uint32_t addr_end = (page_cnt == 1) ? (address + len) : (page_begin + 0x100);
-	uint32_t size = addr_end - addr_begin;
-	const uint8_t* buffer = data;
-	uint8_t write_data[12];
-
-	uint32_t offset_to_align;
-	uint32_t read_word;
-	uint32_t i;
-
-	while(page_cnt)
-	{
-		offset_to_align = addr_begin & 0x3;
-
-		if(offset_to_align != 0)
-		{
-			read_word = REG32(FLASH_BASE + addr_begin - offset_to_align);
-			for(i = offset_to_align; i < 4; i++)
-			{
-				read_word = (read_word & (~(0xff << (8 * i)))) | ((*buffer) << (8 * i));
-				size--;
-				buffer++;
-				if(size == 0)
-					break;
-			}
-			FLASH_TxData12B(addr_begin - offset_to_align, 4, (uint8_t*)&read_word);
-		}
-
-		addr_begin = (((addr_begin - 1) >> 2) + 1) << 2;
-		//for(; size >= 256; size -= 256)
-		//{
-		//	FLASH_TxData256B_RAM(addr_begin, 256, data);
-		//	data += 256;
-		//	addr_begin += 256;
-		//}
-		for(; size >= 12; size -= 12)
-		{
-			memcpy(write_data, buffer, 12);
-			FLASH_TxData12B(addr_begin, 12, write_data);
-
-			buffer += 12;
-			addr_begin += 12;
-		}
-
-		for(; size >= 4; size -= 4)
-		{
-			memcpy(write_data, buffer, 4);
-			FLASH_TxData12B(addr_begin, 4, write_data);
-
-			buffer += 4;
-			addr_begin += 4;
-		}
-
-		if(size > 0)
-		{
-			read_word = REG32(FLASH_BASE + addr_begin);
-			for(i = 0; i < size; i++)
-			{
-				read_word = (read_word & (~(0xff << (8 * i)))) | ((*buffer) << (8 * i));
-				buffer++;
-			}
-			FLASH_TxData12B(addr_begin, 4, (uint8_t*)&read_word);
-		}
-
-		page_cnt--;
-		addr_begin = addr_end;
-		addr_end = (page_cnt == 1) ? (address + len) : (((addr_begin >> 8) + 1) << 8);
-		size = addr_end - addr_begin;
-	}
-
-	DCache_Invalidate(FLASH_BASE + address, len);
-
-	return 1;
-}
-
 void flash_program_page(uint32_t off, const uint8_t* data)
 {
-	FLASH_WriteStream(off, FLASH_PAGE_SIZE, data);
+	FLASH_TxData256B(off, FLASH_PAGE_SIZE, (uint8_t*)data);
+	DCache_Invalidate(FLASH_BASE + off, FLASH_PAGE_SIZE);
 }
 
 int flash_erase_range(uint32_t src, uint32_t len)
@@ -348,10 +203,34 @@ int read_factory_mac(uint8_t mac[6])
 	return 0;
 }
 
+static inline uint32_t SYSCFG_CUTVersion_U(void)
+{
+	uint32_t tmp = (READ_REG32(0x48000000 + 0x000C) >> 8) & 0xF;
+	if(0 == tmp) return SYSCFG_CUT_VERSION_A;
+	else
+	{
+		tmp = READ_REG32(0x48000000 + 0x03F0) & 0xF;
+		if(0 == tmp) return SYSCFG_CUT_VERSION_B;
+		else return tmp;
+	}
+}
+
+static inline uint32_t SYSCFG_CUTVersion(void)
+{
+	uint32_t vendortmp = (READ_REG32(0x48000000 + 0x03F0) >> 4) & 0x3;
+	uint32_t cuttmp = READ_REG32(0x48000000 + 0x03F0) & 0xF;
+	if(0x0 == vendortmp) return SYSCFG_CUTVersion_U();
+	else if(0x1 == vendortmp) return cuttmp;
+	else return cuttmp;
+}
+
 void get_chip_data(void)
 {
 	memset(cmd_buf, 0, 16);
 	WRITE_REG32(cmd_buf, 0xA8949DBA); // RTL8720D
+	WRITE_REG32(cmd_buf + 4, SYSCFG_GetChipInfo());
+	WRITE_REG32(cmd_buf + 8, SYSCFG_CUTVersion());
+	WRITE_REG32(cmd_buf + 12, SYSCFG_ROMINFO_Get());
 }
 
 extern int main(void);

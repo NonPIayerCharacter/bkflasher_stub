@@ -55,9 +55,11 @@ SECTIONS
 	Cache_Enable = 0x5811;
 	Cache_Flush = 0x5831;
 	Cache_Debug = 0x5851;
+	EFUSE_OneByteReadROM = 0x6d65;
 	EFUSE_LogicalMap_Read = 0x7091;
 	FLASH_RxCmd = 0x7465;
 	FLASH_WaitBusy = 0x74cd;
+	FLASH_WriteEn = 0x763d;
 	FLASH_TxData12B = 0x7661;
 	FLASH_SetStatus = 0x7735;
 	FLASH_Erase = 0x7755;

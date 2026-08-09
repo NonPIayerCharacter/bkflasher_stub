@@ -1,7 +1,7 @@
 #include "../hal_generic.h"
 
 uint32_t stub_uart = USART0;
-__attribute__((aligned(4)));
+__attribute__((aligned(4)))
 static uint8_t alloc_buf[0x3000];
 struct rom_api_t* p_rom_api = (struct rom_api_t*)ROM_API_ARRAY_BASE;
 void irq_entry() {}

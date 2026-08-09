@@ -66,6 +66,9 @@ SECTIONS
 	UART_CharGet            = 0x4201;
 	UART_Init               = 0x4307;
 	CPU_ClkSet              = 0x4a11;
+	RCC_PeriphClockCmd      = 0x4f09;
+	SYSCFG_GetChipInfo      = 0x5091;
+	SYSCFG_ROMINFO_Get 	= 0x50e9;
 	memcmp                  = 0x6545;
 	memcpy                  = 0x6591;
 	memset                  = 0x66ad;

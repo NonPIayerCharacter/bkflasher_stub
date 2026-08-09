@@ -249,6 +249,17 @@ typedef struct
 #define FLASH_CMD_4READ					0xEB            // 4 x I/O read  command
 #define FLASH_CMD_QREAD					0x6B            // 1I / 4O read command
 
+
+#define SYS_CLK_CTRL1					0x03U //0x210
+#define SYS_FUNC_EN1					0x03U //0x200
+#define BIT_LSYS_GPIO0_FEN				BIT(20)
+#define BIT_LSYS_GPIO0_CKE				BIT(20)	/* R/W	0	 */	
+#define APBPeriph_GPIO_CLOCK			(SYS_CLK_CTRL1  << 30 | BIT_LSYS_GPIO0_CKE)
+#define APBPeriph_GPIO					(SYS_FUNC_EN1  << 30 | BIT_LSYS_GPIO0_FEN)
+
+#define SYSCFG_CUT_VERSION_A				0
+#define SYSCFG_CUT_VERSION_B				1
+
 #define SPIC_LOWSPEED_SAMPLE_PHASE	1
 
 extern uint8_t __image1_bss_start__[];
@@ -280,6 +291,9 @@ _LONG_CALL_ void UART_CharPut(UART_TypeDef* UARTx, uint8_t TxData);
 _LONG_CALL_ void UART_CharGet(UART_TypeDef* UARTx, uint8_t* pRxByte);
 _LONG_CALL_ void UART_SetBaud(UART_TypeDef* UARTx, uint32_t BaudRate);
 _LONG_CALL_ extern uint8_t EFUSE_LogicalMap_Read(uint8_t* pbuf);
+_LONG_CALL_ uint32_t SYSCFG_GetChipInfo(void);
+_LONG_CALL_ uint32_t SYSCFG_ROMINFO_Get(void);
+_LONG_CALL_ void RCC_PeriphClockCmd(uint32_t APBPeriph, uint32_t APBPeriph_Clock, uint8_t NewState);
 
 #define SCB_BASE						(0xE000ED00UL)
 
@@ -382,4 +396,5 @@ static inline void DCache_Invalidate(uint32_t Address, uint32_t Bytes)
 		SCB_InvalidateDCache_by_Addr((uint32_t*)addr, len);
 	}
 }
+
 #endif
