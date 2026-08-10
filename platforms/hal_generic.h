@@ -19,6 +19,10 @@
 #include "RTL8710C/rtl8710c_hal.h"
 #elif PLATFORM_GD32VW553
 #include "GD32VW553/gd32vw553_hal.h"
+#elif PLATFORM_RTL8721DA
+#include "RTL8721DA/rtl8721da_hal.h"
+#elif PLATFORM_RTL8720E
+#include "RTL8720E/rtl8720e_hal.h"
 #endif
 
 #ifndef REG32
@@ -31,6 +35,7 @@
 #ifndef BIT
 #define BIT(x)					(1 << x)
 #endif
+#define MAX( a , b ) ( ( (a) > (b) ) ? (a) : (b) )
 
 /* Common OBK/Easy-Flasher custom-stub protocol.
  * These values are shared with the existing OBK custom stubs.
@@ -44,7 +49,7 @@
 #define OBK_CMD_FLASH_CHIP_ERASE   0x05U
 #define OBK_CMD_BAUD_CHANGE        0x07U
 #define OBK_CMD_FLASH_SHA256       0x09U
-#define OBK_CMD_GET_CHIP_PRODUCT   0x20U // returns 16 bytes, first 4 - platform name CRC32, second 4 - chip id if possible, last 8 - extra
+#define OBK_CMD_GET_CHIP_PRODUCT   0x20U // returns 32 bytes, first 4 - platform name CRC32
 #define OBK_CMD_FLASH_CRC32        0x8FU
 #define OBK_CMD_FLASH_ID           0x90U
 #define OBK_CMD_FLASH_XMODEM_DL    0x91U  /* host -> target flash write */
@@ -81,6 +86,10 @@
 #define FLASH_SECTOR_SIZE          0x1000U
 #define FLASH_BLOCK_SIZE           0x10000U
 #define FLASH_PAGE_SIZE            0x100U
+
+#ifndef WATCHDOG_REFRESH
+#define WATCHDOG_REFRESH()
+#endif
 
 typedef struct
 {
@@ -160,6 +169,11 @@ void get_chip_data(void);
 static inline uint32_t load_le32(const uint8_t* p)
 {
 	return p[0] | (p[1] << 8) | (p[2] << 16) | (p[3] << 24);
+}
+
+static inline uint16_t load_le16(const uint8_t* p)
+{
+	return p[0] | (p[1] << 8);
 }
 
 static inline void delay_loops(volatile uint32_t loops)

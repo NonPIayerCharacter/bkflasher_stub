@@ -295,7 +295,6 @@ int read_factory_mac(uint8_t mac[6])
 
 void get_chip_data(void)
 {
-	memset(cmd_buf, 0, 16);
 	WRITE_REG32(cmd_buf, 0x34B6B640); // RTL8710C
 	hal_efuse_stubs.hal_efuse_read(EFUSE_CTRL_SETTING, 0x1F8, cmd_buf + 4, LDO_OUT_DEFAULT_VOLT);
 	WRITE_REG32(cmd_buf + 8, READ_REG32(0x400001F0));

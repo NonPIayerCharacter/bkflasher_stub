@@ -226,7 +226,6 @@ static inline uint32_t SYSCFG_CUTVersion(void)
 
 void get_chip_data(void)
 {
-	memset(cmd_buf, 0, 16);
 	WRITE_REG32(cmd_buf, 0xA8949DBA); // RTL8720D
 	WRITE_REG32(cmd_buf + 4, SYSCFG_GetChipInfo());
 	WRITE_REG32(cmd_buf + 8, SYSCFG_CUTVersion());

@@ -266,7 +266,6 @@ int read_factory_mac(uint8_t mac[6])
 
 void get_chip_data(void)
 {
-	memset(cmd_buf, 0, 16);
 	WRITE_REG32(cmd_buf, 0x43B186D6); // RTL8710B
 	// todo: get chip id
 }

@@ -236,7 +236,6 @@ int read_factory_mac(uint8_t mac[6])
 
 void get_chip_data(void)
 {
-	memset(cmd_buf, 0, 16);
 	WRITE_REG32(cmd_buf, 0xFFDC26B5); // GD32VW553
 	WRITE_REG32(cmd_buf + 4, FMC_PID0);
 	WRITE_REG32(cmd_buf + 8, FMC_PID1);

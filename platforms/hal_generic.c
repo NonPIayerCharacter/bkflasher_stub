@@ -97,5 +97,5 @@ uint32_t crc32_memory_software(uint32_t addr, uint32_t len)
 	{
 		crc = crc32_update_wire(crc, p[i]);
 	}
-	return crc;
+	return crc ^ 0xFFFFFFFFU;
 }

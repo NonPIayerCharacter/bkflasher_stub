@@ -95,7 +95,18 @@ extern "C"
     };
 
 /* TDEFL_OUT_BUF_SIZE MUST be large enough to hold a single entire compressed output block (using static/fixed Huffman codes). */
-#if TDEFL_LESS_MEMORY
+#if PLATFORM_RTL8721DA || PLATFORM_RTL8720E
+    enum
+    {
+        TDEFL_LZ_CODE_BUF_SIZE = 64 * 1024,
+        TDEFL_OUT_BUF_SIZE = (mz_uint)((TDEFL_LZ_CODE_BUF_SIZE * 13) / 10),
+        TDEFL_MAX_HUFF_SYMBOLS = 288,
+        TDEFL_LZ_HASH_BITS = 15,
+        TDEFL_LEVEL1_HASH_SIZE_MASK = 4095,
+        TDEFL_LZ_HASH_SHIFT = (TDEFL_LZ_HASH_BITS + 2) / 3,
+        TDEFL_LZ_HASH_SIZE = 1 << TDEFL_LZ_HASH_BITS
+    };
+#else
     enum
     {
         TDEFL_LZ_CODE_BUF_SIZE = 24 * 1024,
@@ -106,17 +117,6 @@ extern "C"
         TDEFL_LZ_HASH_SHIFT = (TDEFL_LZ_HASH_BITS + 2) / 3,
         TDEFL_LZ_HASH_SIZE = 1 << TDEFL_LZ_HASH_BITS
     };
-#else
-enum
-{
-    TDEFL_LZ_CODE_BUF_SIZE = 64 * 1024,
-    TDEFL_OUT_BUF_SIZE = (mz_uint)((TDEFL_LZ_CODE_BUF_SIZE * 13) / 10),
-    TDEFL_MAX_HUFF_SYMBOLS = 288,
-    TDEFL_LZ_HASH_BITS = 15,
-    TDEFL_LEVEL1_HASH_SIZE_MASK = 4095,
-    TDEFL_LZ_HASH_SHIFT = (TDEFL_LZ_HASH_BITS + 2) / 3,
-    TDEFL_LZ_HASH_SIZE = 1 << TDEFL_LZ_HASH_BITS
-};
 #endif
 
     /* The low-level tdefl functions below may be used directly if the above helper functions aren't flexible enough. The low-level functions don't make any heap allocations, unlike the above helper functions. */
