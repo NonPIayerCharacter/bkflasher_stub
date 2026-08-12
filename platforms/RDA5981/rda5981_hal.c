@@ -76,11 +76,6 @@ void uart_set_baud(uint32_t baud)
 	RDA_UART0->LCR &= ~(1 << 7);// after loading, disable load devisor register
 }
 
-void uart_init(void)
-{
-	uart_set_baud(115200U);
-}
-
 void flash_erase_64KB(uint32_t addr)
 {
 	spi_wip_reset();
@@ -279,7 +274,7 @@ static void dma_wait(void)
 	RDA_DMACFG->dma_int_out &= ~1u;
 }
 
-int crc32_memory_hardware(uint32_t addr, uint32_t len, uint32_t* result)
+int crc32_memory(uint32_t addr, uint32_t len, uint32_t* result)
 {
 	uint8_t* src = (uint8_t*)addr;
 
@@ -313,11 +308,6 @@ int crc32_memory_hardware(uint32_t addr, uint32_t len, uint32_t* result)
 
 	if(result) *result = RDA_DMACFG->crc_out_val;
 	return 1;
-}
-
-int read_factory_mac(uint8_t mac[6])
-{
-	return 0;
 }
 
 uint16_t efuse_read_page(uint8_t page)
@@ -371,11 +361,6 @@ int read_efuse(void)
 		cmd_buf[(page * 2 + 1)] = (uint8_t)(value >> 8);
 	}
 	return 32;
-}
-
-int sha256_memory_hardware(uint32_t addr, uint32_t len)
-{
-	return 0;
 }
 
 void get_chip_data(void)

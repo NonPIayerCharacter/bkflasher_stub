@@ -142,11 +142,6 @@ int flash_erase_chip()
 	return 1;
 }
 
-int crc32_memory_hardware(uint32_t addr, uint32_t len, uint32_t* result)
-{
-	return 0;
-}
-
 int sha256_memory_hardware(uint32_t addr, uint32_t len)
 {
 	unsigned char hash[32] = { 0 };
@@ -227,11 +222,6 @@ int read_efuse(void)
 		}
 	}
 	return 64;
-}
-
-int read_factory_mac(uint8_t mac[6])
-{
-	return 0;
 }
 
 void get_chip_data(void)

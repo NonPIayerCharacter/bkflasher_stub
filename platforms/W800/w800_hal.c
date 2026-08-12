@@ -206,16 +206,6 @@ int read_factory_mac(uint8_t mac[6])
 	return w800_read_factory_mac_at(0U, mac);
 }
 
-int read_efuse(void)
-{
-	return 0;
-}
-
-int sha256_memory_hardware(uint32_t addr, uint32_t len)
-{
-	return 0;
-}
-
 void get_chip_data(void)
 {
 	WRITE_REG32(cmd_buf, 0xDC7E93D2); // W80x

@@ -1,7 +1,5 @@
 #include "../hal_generic.h"
 
-uint32_t Crc32Table[256] = { 0 };
-
 void uart_putc(uint8_t b)
 {
 	while(!UART_Writable(UART2_DEV));
@@ -24,11 +22,6 @@ int8_t uart_getc_timeout(uint8_t* out, uint32_t loops)
 void uart_set_baud(uint32_t baud)
 {
 	UART_SetBaud(UART2_DEV, baud);
-}
-
-void uart_init(void)
-{
-	uart_set_baud(115200U);
 }
 
 void flash_rx_mode_switch(uint8_t read_mode)
@@ -166,41 +159,10 @@ int flash_erase_chip()
 	return 1;
 }
 
-__attribute__((optimize("O2")))
-int crc32_memory_hardware(uint32_t addr, uint32_t len, uint32_t* result)
-{
-	uint32_t crc = 0xFFFFFFFF;
-	const uint8_t* p = (const uint8_t*)addr;
-	while(len >= 4)
-	{
-		crc = (crc >> 8) ^ Crc32Table[(crc ^ *p++) & 0xFF];
-		crc = (crc >> 8) ^ Crc32Table[(crc ^ *p++) & 0xFF];
-		crc = (crc >> 8) ^ Crc32Table[(crc ^ *p++) & 0xFF];
-		crc = (crc >> 8) ^ Crc32Table[(crc ^ *p++) & 0xFF];
-		len -= 4;
-	}
-
-	while(len--)
-		crc = (crc >> 8) ^ Crc32Table[(crc ^ *p++) & 0xFF];
-
-	*result = crc ^ 0xffffffff;
-	return 1;
-}
-
-int sha256_memory_hardware(uint32_t addr, uint32_t len)
-{
-	return 0;
-}
-
 int read_efuse(void)
 {
 	EFUSE_LogicalMap_Read((uint8_t*)&cmd_buf);
 	return 1024;
-}
-
-int read_factory_mac(uint8_t mac[6])
-{
-	return 0;
 }
 
 static inline uint32_t SYSCFG_CUTVersion_U(void)
@@ -245,22 +207,6 @@ __attribute__((used)) void flasher_stub(void)
 
 	CPU_ClkSet(0);
 	DelayUs(10);
-	for(uint32_t i = 0; i < 256; i++)
-	{
-		uint32_t c = i;
-		for(int j = 0; j < 8; j++)
-		{
-			if((c & 1) != 0)
-			{
-				c = (0xEDB88320 ^ (c >> 1));
-			}
-			else
-			{
-				c = c >> 1;
-			}
-		}
-		Crc32Table[i] = c;
-	}
 	main();
 }
 

@@ -23,6 +23,10 @@
 #include "RTL8721DA/rtl8721da_hal.h"
 #elif PLATFORM_RTL8720E
 #include "RTL8720E/rtl8720e_hal.h"
+#elif PLATFORM_LN882H
+#include "LN882H/ln882h_hal.h"
+#elif PLATFORM_LN8825
+#include "LN8825/ln8825_hal.h"
 #endif
 
 #ifndef REG32
@@ -61,6 +65,7 @@
 #define OBK_CMD_FLASH_XMODEM_DL_Z  0x97U  /* compressed host -> target */
 #define OBK_CMD_RAW_XMODEM_UL      0x98U  /* target -> host absolute memory read */
 #define OBK_CMD_READ_EFUSE         0x99U
+#define OBK_CMD_READ_OTP           0x9AU
 
 #define OBK_STATUS_SUCCESS         0x00U
 #define OBK_STATUS_ERROR           0x01U
@@ -144,7 +149,11 @@ int flash_erase_chip(void);
 
 void flash_init(void);
 
-int crc32_memory_hardware(uint32_t addr, uint32_t len, uint32_t* result);
+void crc32_init_table(void);
+
+uint32_t crc32_update_wire(uint32_t crc, uint8_t b);
+
+int crc32_memory(uint32_t addr, uint32_t len, uint32_t* result);
 
 int sha256_memory_hardware(uint32_t addr, uint32_t len);
 
@@ -158,13 +167,13 @@ int buffer_is_erased(const uint8_t* data, uint32_t len);
 
 uint32_t reverse_u32(uint32_t value);
 
-uint32_t crc32_update_wire(uint32_t crc, uint8_t b);
-
-uint32_t crc32_memory_software(uint32_t addr, uint32_t len);
+uint16_t crc16_xmodem(const uint8_t* data, uint32_t len);
 
 int read_efuse(void);
 
 void get_chip_data(void);
+
+int read_otp(void);
 
 static inline uint32_t load_le32(const uint8_t* p)
 {

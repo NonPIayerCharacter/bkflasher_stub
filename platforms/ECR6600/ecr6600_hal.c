@@ -142,12 +142,6 @@ done:
 	WRITE_REG32(UARTC_LCR_REG, value & ~0x80);
 }
 
-void uart_init(void)
-{
-	//uart_init_ecr(SOC_UART0_BASE);
-	uart_set_baud(115200U);
-}
-
 void nds32_dcache_invalidate(void)
 {
 	__nds32__cctl_l1d_invalall();
@@ -287,11 +281,6 @@ int crc32_memory_hardware(uint32_t addr, uint32_t len, uint32_t* result)
 {
 	*result = crc32(0, (void*)addr, len);
 	return 1;
-}
-
-int read_factory_mac(uint8_t mac[6])
-{
-	return 0;
 }
 
 int read_efuse(void)

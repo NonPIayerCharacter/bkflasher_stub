@@ -8,25 +8,8 @@ __attribute__((aligned(4)))
 uint8_t cmd_buf[BUF_SIZE];
 __attribute__((aligned(4)))
 static uint8_t xmodem_packet[1 + 3 + 1024 + 2];
-static const uint16_t crc16_table[16] =
-{
-	0x0000, 0x1021, 0x2042, 0x3063, 0x4084, 0x50A5, 0x60C6, 0x70E7,
-	0x8108, 0x9129, 0xA14A, 0xB16B, 0xC18C, 0xD1AD, 0xE1CE, 0xF1EF
-};
 uint32_t flash_id;
 uint32_t flash_size;
-
-static uint16_t crc16_xmodem(const uint8_t* data, uint32_t len)
-{
-	uint16_t crc = 0U;
-	while(len--)
-	{
-		uint8_t byte = *data++;
-		crc = (crc << 4) ^ crc16_table[((crc >> 12) ^ (byte >> 4)) & 0x0FU];
-		crc = (crc << 4) ^ crc16_table[((crc >> 12) ^ (byte)) & 0x0FU];
-	}
-	return crc;
-}
 
 static uint8_t obk_crc8_sum(const uint8_t* data, uint32_t len)
 {
@@ -84,11 +67,11 @@ static void obk_send_flash_id_binary(uint8_t type)
 	obk_data_reply(type, payload, sizeof(payload), OBK_STATUS_SUCCESS);
 }
 
-static uint32_t crc32_memory(uint32_t addr, uint32_t len)
+static uint32_t crc32_calc(uint32_t addr, uint32_t len)
 {
 	uint32_t crc = 0xFFFFFFFFU;
-	if(crc32_memory_hardware(addr, len, &crc)) return crc;
-	return crc32_memory_software(addr, len);
+	if(crc32_memory(addr, len, &crc)) return crc;
+	return 0;
 }
 
 static void obk_send_flash_sha256(uint8_t type, uint32_t off, uint32_t len)
@@ -111,7 +94,7 @@ static void obk_send_flash_crc32(uint8_t type, uint32_t off, uint32_t len)
 		obk_ack(type, OBK_STATUS_ADDR_ERROR);
 		return;
 	}
-	uint32_t crc = crc32_memory(FLASH_BASE + off, len);
+	uint32_t crc = crc32_calc(FLASH_BASE + off, len);
 	uint8_t payload[4];
 	payload[0] = (uint8_t)(crc & 0xFFU);
 	payload[1] = (uint8_t)((crc >> 8) & 0xFFU);
@@ -691,7 +674,6 @@ static void handle_obk_frame(void)
 			uint32_t off = load_le32(cmd_buf);
 			uint32_t len = load_le32(cmd_buf + 4);
 			obk_ack(type, OBK_STATUS_SUCCESS);
-			//delay_loops(400000);
 			xmodem_receive_flash(off, len);
 			break;
 		}
@@ -723,7 +705,6 @@ static void handle_obk_frame(void)
 			uint32_t off = load_le32(cmd_buf);
 			uint32_t len = load_le32(cmd_buf + 4);
 			obk_ack(type, OBK_STATUS_SUCCESS);
-			//delay_loops(400000);
 			xmodem_receive_compressed_flash(off, len);
 			break;
 		}
@@ -753,6 +734,17 @@ static void handle_obk_frame(void)
 		case OBK_CMD_READ_EFUSE:
 		{
 			int len = read_efuse();
+			if(!len)
+			{
+				obk_ack(type, OBK_STATUS_ERROR);
+				return;
+			}
+			obk_data_reply(type, cmd_buf, len, OBK_STATUS_SUCCESS);
+			break;
+		}
+		case OBK_CMD_READ_OTP:
+		{
+			int len = read_otp();
 			if(!len)
 			{
 				obk_ack(type, OBK_STATUS_ERROR);
@@ -802,12 +794,7 @@ int main(void)
 	uart_init();
 	flash_init();
 	flash_size = flash_size_from_jedec(flash_id);
-
-	/* The W800 ROM upload backend waits for this prompt before using 0xA5 commands. */
-	//for (int i = 0; i < 4; i++) {
-	//    uart_putc('C');
-	//    delay_loops(80000);
-	//}
+	crc32_init_table();
 
 	while(1)
 	{
@@ -815,12 +802,10 @@ int main(void)
 		uint8_t b;
 		if(!uart_getc_timeout(&b, PROMPT_IDLE_LOOPS))
 		{
-			//if (prompt_enabled) uart_putc('C');
 			continue;
 		}
 		if(b == OBK_STUB_MAGIC)
 		{
-			//prompt_enabled = 0;
 			handle_obk_frame();
 		}
 	}

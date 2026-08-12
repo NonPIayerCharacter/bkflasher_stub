@@ -242,11 +242,6 @@ int flash_erase_chip()
 	return 1;
 }
 
-int crc32_memory_hardware(uint32_t addr, uint32_t len, uint32_t* result)
-{
-	return 0;
-}
-
 int sha256_memory_hardware(uint32_t addr, uint32_t len)
 {
 	__attribute__((aligned(8))) uint8_t hash[32] = { 0 };

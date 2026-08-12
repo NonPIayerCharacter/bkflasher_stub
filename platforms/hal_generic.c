@@ -1,5 +1,11 @@
 #include "hal_generic.h"
 
+static const uint16_t crc16_table[16] =
+{
+	0x0000, 0x1021, 0x2042, 0x3063, 0x4084, 0x50A5, 0x60C6, 0x70E7,
+	0x8108, 0x9129, 0xA14A, 0xB16B, 0xC18C, 0xD1AD, 0xE1CE, 0xF1EF
+};
+
 //int flash_range_is_erased(uint32_t off, uint32_t len)
 //{
 //	const volatile uint8_t* flash = (const volatile uint8_t*)(uintptr_t)(FLASH_BASE + off);
@@ -89,7 +95,57 @@ uint32_t crc32_update_wire(uint32_t crc, uint8_t b)
 	return crc;
 }
 
-uint32_t crc32_memory_software(uint32_t addr, uint32_t len)
+#ifdef FASTER_CRC32
+
+uint32_t Crc32Table[256] = { 0 };
+
+void crc32_init_table(void)
+{
+	for(uint32_t i = 0; i < 256; i++)
+	{
+		uint32_t c = i;
+		for(int j = 0; j < 8; j++)
+		{
+			if((c & 1) != 0)
+			{
+				c = (0xEDB88320 ^ (c >> 1));
+			}
+			else
+			{
+				c = c >> 1;
+			}
+		}
+		Crc32Table[i] = c;
+	}
+}
+
+__attribute__((optimize("O2"), weak))
+int crc32_memory(uint32_t addr, uint32_t len, uint32_t* result)
+{
+	uint32_t crc = 0xFFFFFFFF;
+	const uint8_t* p = (const uint8_t*)addr;
+	while(len >= 4)
+	{
+		crc = (crc >> 8) ^ Crc32Table[(crc ^ *p++) & 0xFF];
+		crc = (crc >> 8) ^ Crc32Table[(crc ^ *p++) & 0xFF];
+		crc = (crc >> 8) ^ Crc32Table[(crc ^ *p++) & 0xFF];
+		crc = (crc >> 8) ^ Crc32Table[(crc ^ *p++) & 0xFF];
+		len -= 4;
+	}
+
+	while(len--)
+		crc = (crc >> 8) ^ Crc32Table[(crc ^ *p++) & 0xFF];
+
+	*result = crc ^ 0xffffffff;
+	return 1;
+}
+
+#else
+
+void crc32_init_table() { }
+
+__attribute__((weak))
+int crc32_memory(uint32_t addr, uint32_t len, uint32_t* result)
 {
 	uint32_t crc = 0xFFFFFFFFU;
 	const volatile uint8_t* p = (const volatile uint8_t*)(uintptr_t)addr;
@@ -97,5 +153,51 @@ uint32_t crc32_memory_software(uint32_t addr, uint32_t len)
 	{
 		crc = crc32_update_wire(crc, p[i]);
 	}
-	return crc ^ 0xFFFFFFFFU;
+	*result = crc ^ 0xFFFFFFFFU;
+	return 1;
+}
+
+#endif
+
+__attribute__((weak))
+uint16_t crc16_xmodem(const uint8_t* data, uint32_t len)
+{
+	uint16_t crc = 0U;
+	while(len--)
+	{
+		uint8_t byte = *data++;
+		crc = (crc << 4) ^ crc16_table[((crc >> 12) ^ (byte >> 4)) & 0x0FU];
+		crc = (crc << 4) ^ crc16_table[((crc >> 12) ^ (byte)) & 0x0FU];
+	}
+	return crc;
+}
+
+__attribute__((weak))
+int sha256_memory_hardware(uint32_t addr, uint32_t len)
+{
+	return 0;
+}
+
+__attribute__((weak))
+void uart_init(void)
+{
+	uart_set_baud(115200U);
+}
+
+__attribute__((weak))
+int read_factory_mac(uint8_t mac[6])
+{
+	return 0;
+}
+
+__attribute__((weak))
+int read_efuse(void)
+{
+	return 0;
+}
+
+__attribute__((weak))
+int read_otp(void)
+{
+	return 0;
 }

@@ -24,11 +24,6 @@ void uart_set_baud(uint32_t baud)
 	UART_SetBaud(UART2_DEV, baud);
 }
 
-void uart_init(void)
-{
-	uart_set_baud(115200U);
-}
-
 void flash_rx_mode_switch(uint8_t read_mode)
 {
 	uint8_t tmp_dc = 0, status = 0, spic_mode = 0, i;
@@ -239,7 +234,7 @@ int flash_erase_chip()
 	return 1;
 }
 
-int crc32_memory_hardware(uint32_t addr, uint32_t len, uint32_t* result)
+int crc32_memory(uint32_t addr, uint32_t len, uint32_t* result)
 {
 	*result = crc32_get((void*)addr, len);
 	return 1;
@@ -257,11 +252,6 @@ int read_efuse(void)
 {
 	EFUSE_LogicalMap_Read((uint8_t*)&cmd_buf);
 	return 512;
-}
-
-int read_factory_mac(uint8_t mac[6])
-{
-	return 0;
 }
 
 void get_chip_data(void)
