@@ -65,6 +65,37 @@ static int flash_erase_cmd(uint32_t addr, uint8_t cmd)
 	return 0;
 }
 
+static int spi_otp_read_region(uint32_t cmd, uint32_t addr, uint32_t len, uint8_t* pdata)
+{
+	if(!spi_bus_ready(SOC_SPI0_BASE))
+		return -1;
+
+	if(spi_fifo_reset(SOC_SPI0_BASE))
+		return -2;
+
+	WRITE_REG32(SOC_SPI0_BASE + 0x20,
+		SPI_TRANSCTRL_CMD_EN |
+		SPI_TRANSCTRL_ADDR_EN |
+		SPI_TRANSCTRL_TRAMODE_RO |
+		SPI_TRANSCTRL_DUALQUAD_REGULAR |
+		SPI_TRANSCTRL_RCNT(len - 1));
+
+	WRITE_REG32(SOC_SPI0_BASE + 0x28, addr);
+	WRITE_REG32(SOC_SPI0_BASE + 0x24, SPIFLASH_CMD_OTP_RD);
+
+	uint32_t words = len / 4;
+	uint32_t* dst = (uint32_t*)pdata;
+
+	for(uint32_t i = 0; i < words; i++)
+	{
+		while(READ_REG32(SOC_SPI0_BASE + 0x34) & SPI_STATUS_RXENPTY);
+
+		dst[i] = READ_REG32(SOC_SPI0_BASE + 0x2c);
+	}
+
+	return 0;
+}
+
 void uart_set_baud(uint32_t baud)
 {
 	uint32_t uclk;
@@ -264,6 +295,156 @@ int read_efuse(void)
 		WRITE_REG32(cmd_buf + i * 4, READ_REG32(SOC_EFUSE_BASE + 0x08));
 	}
 	return 32;
+}
+
+int read_otp(void)
+{
+	uint32_t otp_block_size = 0;
+	uint32_t otp_block_count = 0;
+	uint32_t otp_interval = 0;
+	uint32_t otp_start_addr = 0;
+	uint32_t otp_mode = 0;
+	switch(flash_id)
+	{
+		case 0x1440c8:
+		case 0x1540c8:
+			otp_interval = 0x1000;
+			otp_block_size = 1024;
+			otp_block_count = 2;
+			break;
+		case 0x1640c8:
+		case 0x1840c8:
+		case 0x15400b:
+		case 0x16400b:
+		case 0x17400b:
+		case 0x17405e:
+		case 0x18405e:
+			otp_start_addr = 0x1000;
+			otp_interval = 0x1000;
+			otp_block_size = 1024;
+			otp_block_count = 3;
+			break;
+		case 0x1460c8:
+			otp_start_addr = 0x1000;
+			otp_interval = 0x1000;
+			otp_block_size = 512;
+			otp_block_count = 3;
+			break;
+		case 0x164068:
+		case 0x1640ef:
+		case 0x144020:
+		case 0x154020:
+		case 0x164020:
+		case 0x174020:
+		case 0x14605e:
+		case 0x15605e:
+		case 0x16405e:
+			otp_start_addr = 0x1000;
+			otp_interval = 0x1000;
+			otp_block_size = 256;
+			otp_block_count = 3;
+			break;
+		case 0x15701c:
+			otp_start_addr = 0x1FD000;
+			otp_interval = 0x1000;
+			otp_block_size = 512;
+			otp_block_count = 3;
+			otp_mode = 1;
+			break;
+		case 0x16701c:
+			otp_start_addr = 0x3FD000;
+			otp_interval = 0x1000;
+			otp_block_size = 512;
+			otp_block_count = 3;
+			otp_mode = 1;
+			break;
+		case 0x16301c:
+			otp_start_addr = 0x3FF000;
+			otp_interval = 0x1000;
+			otp_block_size = 512;
+			otp_block_count = 1;
+			otp_mode = 1;
+			break;
+		case 0x14400b:
+			otp_start_addr = 0x1000;
+			// fall through
+		case 0x1540a1:
+		case 0x1560eb:
+		case 0x1560c4:
+			otp_interval = 256;
+			otp_block_size = 256;
+			otp_block_count = 4;
+			break;
+		case 0x1660c4:
+			otp_interval = 1024;
+			otp_block_size = 1024;
+			otp_block_count = 3;
+			break;
+		case 0x1720c2:
+		case 0x1820c2:
+			otp_interval = 512;
+			otp_block_size = 512;
+			otp_block_count = 2;
+			break;
+		case 0x146085:
+			otp_start_addr = 0x1000;
+			otp_interval = 0x1000;
+			otp_block_size = 512;
+			otp_block_count = 3;
+			break;
+		case 0x156085:
+		case 0x154285:
+		case 0x152085:
+		case 0x166085:
+			otp_start_addr = 0x1000;
+			otp_interval = 0x1000;
+			otp_block_size = 1024;
+			otp_block_count = 3;
+			break;
+		default:
+			return 0;
+	}
+
+	if(flash_id == 0x16701c || flash_id == 0x15701c || flash_id == 0x16301c)
+	{
+		spi_cmd_none(SPIFLASH_CMD_OTP_ENTRY);
+	}
+
+	if(flash_id == 0x1720c2 || flash_id == 0x1820c2)
+	{
+		spi_cmd_none(SPIFLASH_CMD_OTP_ENTRY_KH);
+	}
+
+	size_t out_offset = 0;
+	for(uint32_t blk = 0; blk < otp_block_count; ++blk)
+	{
+		uint32_t addr = otp_start_addr + blk * otp_interval;
+		uint32_t remain = otp_block_size;
+
+		while(remain > 0)
+		{
+			uint32_t len = remain > 256 ? 256 : remain;
+			if(otp_mode)
+				spi_otp_read_region(0x48, addr, len, cmd_buf + out_offset);
+			else
+				spi_otp_read_region(SPIFLASH_CMD_OTP_RD, addr, len, cmd_buf + out_offset);
+			addr += len;
+			out_offset += len;
+			remain -= len;
+		}
+	}
+
+	if(flash_id == 0x16701c || flash_id == 0x15701c || flash_id == 0x16301c)
+	{
+		spi_cmd_none(SPIFLASH_CMD_OTP_EXIT);
+	}
+
+	if(flash_id == 0x1720c2 || flash_id == 0x1820c2)
+	{
+		spi_cmd_none(SPIFLASH_CMD_OTP_EXIT_KH);
+	}
+
+	return out_offset;
 }
 
 void get_chip_data(void)
