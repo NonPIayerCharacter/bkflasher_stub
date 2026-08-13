@@ -1,6 +1,6 @@
 CROSS_COMPILE ?= arm-none-eabi-
 
-CFLAGS := -mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard -flto -Os -std=gnu99 -mthumb -mlittle-endian -fno-strict-aliasing -DLN882x -DFASTER_CRC32 -nostdlib -nostartfiles -ffreestanding
+CFLAGS := -mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard -flto -Os -std=gnu99 -mthumb -mlittle-endian -fno-strict-aliasing -DLN882x -nostdlib -nostartfiles -ffreestanding
 LDFLAGS := -mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard -flto -Wl,--gc-sections -Wl,-Tplatforms/$(PLATFORM)/stub.ld -Wl,-Map=$(BUILD_DIR)/$(PLATFORM)_stub.map -Wl,--cref -Wl,--entry=Reset_Handler -nostdlib -nostartfiles -ffreestanding -L./third_party/ln8825 -Wl,--whole-archive -ldriver_ln882x
 
 CFLAGS += -Ithird_party/ln8825

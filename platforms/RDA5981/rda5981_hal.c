@@ -3,15 +3,12 @@
 #define CRC_CHUNK_SIZE   (sizeof(cmd_buf) / 2)
 #define CRC_CHUNK_WORDS  (CRC_CHUNK_SIZE / sizeof(uint32_t))
 
-uint32_t SystemCoreClock = RDA_SYS_CLK_FREQUENCY_160M; /*!< System Clock Frequency (Core Clock)*/
-uint32_t AHBBusClock = RDA_BUS_CLK_FREQUENCY_80M; /*!< AHB Bus Clock Frequency (Bus Clock)*/
+uint32_t SystemCoreClock = RDA_SYS_CLK_FREQUENCY_160M;
+uint32_t AHBBusClock = RDA_BUS_CLK_FREQUENCY_80M;
 
 static void wait_busy_down(void)
 {
-	while((READ_REG32(FLASH_CTL_STATUS_REG) & 1U) != 0U)
-	{
-		__asm volatile ("nop");
-	}
+	while((READ_REG32(FLASH_CTL_STATUS_REG) & 1U) != 0U);
 }
 
 static void spi_wip_reset(void)
@@ -105,48 +102,17 @@ static inline void rd_rf_usb_reg(unsigned char a, unsigned short* d, int isusb)
 void rda_ccfg_ck(void)
 {
 	unsigned short val = 0U, cfg = 0U;
-#if ((SYS_CPU_CLK == CLK_FREQ_160M) && (AHB_BUS_CLK == CLK_FREQ_80M))
-#if 0
-	const unsigned int trap_ram_code[] = {
-		/* addr_ofst, val */
-		/* 0x0000 */  0xB8A6F0FEUL,
-		/* 0x0004 */  0xBF006008UL,
-		/* 0x0008 */  0xBF00BF00UL,
-		/* 0x000C */  0xBF00BF00UL,
-		/* 0x0010 */  0xBF00BF00UL,
-		/* 0x0014 */  0x6848BF00UL,
-		/* 0x0018 */  0xD1FC07C0UL,
-		/* 0x001C */  0xF000F8DFUL,
-		/* 0x0020 */  0x00001EBCUL
-	};
-#endif
-#endif /* CLK_FREQ_160M && CLK_FREQ_80M */
-
 	cfg = (RDA_SCU->CORECFG >> 11) & 0x07U;
 	rd_rf_usb_reg(0xA4, &val, 0);
-#if ((SYS_CPU_CLK == CLK_FREQ_160M) && (AHB_BUS_CLK == CLK_FREQ_80M))
-	/* HCLK inv */
 	if(((CLK_FREQ_40M << 1) | CLK_FREQ_40M) == cfg)
 	{
 		val |= (0x01U << 12);
 	}
-#endif /* CLK_FREQ_160M && CLK_FREQ_80M */
-	/* Config CPU & BUS clock */
 	cfg ^= (((SYS_CPU_CLK << 1) | AHB_BUS_CLK) & 0x07U);
-	val &= ~(0x07U << 9);   /* bit[11:10] = 2'b00:40M, 2'b01:80M, 2'b1x:160M */
-	val |= (cfg << 9);   /* bit[9] = 1'b0:40M, 1'b1:80M */
-	val &= ~(0x01U);        /* i2c_wakeup_en */
+	val &= ~(0x07U << 9);
+	val |= (cfg << 9);
+	val &= ~(0x01U);
 	wr_rf_usb_reg(0xA4, val, 0);
-
-#if ((SYS_CPU_CLK == CLK_FREQ_160M) && (AHB_BUS_CLK == CLK_FREQ_80M))
-#if 0
-	/* Load RAM code */
-	for(val = 0; val < sizeof(trap_ram_code); val += 4)
-	{
-		READ_REG32(TRAP_RAM_BASE + val) = trap_ram_code[val >> 2];
-	}
-#endif
-#endif /* CLK_FREQ_160M && CLK_FREQ_80M */
 }
 
 static inline void spi_flash_flush_cache(void)

@@ -86,6 +86,17 @@ void flash_init(void)
 	flash_cache_init(0);
 }
 
+int crc32_memory(uint32_t addr, uint32_t len, uint32_t* result)
+{
+	*result = ln_crc32_signle_cal((uint8_t*)addr, len);
+	return 1;
+}
+
+uint16_t crc16_xmodem(const uint8_t* data, uint32_t len)
+{
+	return crc16_ccitt(data, len);
+}
+
 int read_efuse(void)
 {
 	for(int i = 0; i < 8; ++i)

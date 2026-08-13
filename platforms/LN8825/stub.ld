@@ -30,3 +30,11 @@ SECTIONS
 	} > IRAM
 	__StackTop = ORIGIN(IRAM) + LENGTH(IRAM);
 }
+
+SECTIONS
+{
+	memcpy = 0x115;
+	memset = 0x14a;
+	ln_crc32_signle_cal = 0x3dd;
+	crc16_ccitt = 0x199d;
+}

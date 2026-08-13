@@ -27,6 +27,8 @@
 #include "LN882H/ln882h_hal.h"
 #elif PLATFORM_LN8825
 #include "LN8825/ln8825_hal.h"
+#elif PLATFORM_TR6260
+#include "TR6260/tr6260_hal.h"
 #endif
 
 #ifndef REG32

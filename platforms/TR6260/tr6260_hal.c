@@ -1,7 +1,5 @@
 #include "../hal_generic.h"
-#include <nds32_intrinsic.h>
 
-unsigned int g_efuse_ctrl = 0;
 E_SPI_MODE spi_mode = SPI_MODE_STANDARD;
 
 static int spi_cmd_none(uint8_t cmd)
@@ -17,18 +15,13 @@ static int spi_cmd_none(uint8_t cmd)
 
 static uint32_t spi_read_cmd(uint8_t cmd, uint32_t len)
 {
-	uint32_t enc = READ_REG32(SOC_PD_APB_ENCRYPT_EN);
-	WRITE_REG32(SOC_PD_APB_ENCRYPT_EN, APB_WRIT_NOT_ENCRYPT);
 	if(!spi_bus_ready(SOC_SPI0_BASE)) goto fail;
 	if(spi_fifo_reset(SOC_SPI0_BASE)) goto fail;
 	WRITE_REG32(SOC_SPI0_BASE + 0x20, SPI_TRANSCTRL_CMD_EN | SPI_TRANSCTRL_TRAMODE_RO | SPI_TRANSCTRL_RCNT(len - 1));
 	WRITE_REG32(SOC_SPI0_BASE + 0x24, cmd);
 	if(!spi_rx_ready(SOC_SPI0_BASE))  goto fail;
-	WRITE_REG32(SOC_PD_APB_ENCRYPT_EN, enc);
 	return READ_REG32(SOC_SPI0_BASE + 0x2c);
-
 fail:
-	WRITE_REG32(SOC_PD_APB_ENCRYPT_EN, enc);
 	return -1;
 }
 
@@ -53,14 +46,11 @@ static void flash_wait_busy(void)
 
 static void flash_write_status(uint32_t cmd, uint32_t value, int len)
 {
-	unsigned int enc = READ_REG32(SOC_PD_APB_ENCRYPT_EN);
-	WRITE_REG32(SOC_PD_APB_ENCRYPT_EN, APB_WRIT_NOT_ENCRYPT);
 	flash_write_enable();
 	WRITE_REG32(SOC_SPI0_BASE + 0x20, SPI_TRANSCTRL_CMD_EN | SPI_TRANSCTRL_TRAMODE_WO | SPI_TRANSCTRL_WCNT(len - 1));
 	WRITE_REG32(SOC_SPI0_BASE + 0x24, cmd);
 	WRITE_REG32(SOC_SPI0_BASE + 0x2c, value);
 	flash_wait_busy();
-	WRITE_REG32(SOC_PD_APB_ENCRYPT_EN, enc);
 }
 
 static int flash_erase_cmd(uint32_t addr, uint8_t cmd)
@@ -75,38 +65,12 @@ static int flash_erase_cmd(uint32_t addr, uint8_t cmd)
 	return 0;
 }
 
-void uart_putc(uint8_t b)
-{
-	WRITE_REG32(UARTC_THR_REG, b);
-	while(!(REG32(UARTC_LSR_REG) & UARTC_LSR_TEMT));
-}
-
-int8_t uart_getc_timeout(uint8_t* out, uint32_t loops)
-{
-	while(loops--)
-	{
-		if(uart_data_tstc(SOC_UART0_BASE) != 0)
-		{
-			uart_getc(SOC_UART0_BASE, out, 1);
-			return 1;
-		}
-	}
-	return 0;
-}
-
 void uart_set_baud(uint32_t baud)
 {
 	uint32_t uclk;
-	uint32_t value = REG32(UARTC_LCR_REG);
+	uint32_t value = READ_REG32(UART0_BASE + 0x2c);
 
-	uclk = (REG32(SOC_PD_UART_CLK_SEL) == 0) ? 40000000 : 80000000;
-
-	if(uclk == 40000000)
-	{
-		int crystal = g_efuse_ctrl;
-		if((crystal & EFUSE_CRYSTAL_OFFSET) == EFUSE_CRYSTAL_26M)
-			uclk = 26000000;
-	}
+	uclk = 40000000;
 
 	uint32_t bestOsc = 0;
 	uint32_t bestDiv = 0;
@@ -135,11 +99,30 @@ void uart_set_baud(uint32_t baud)
 	}
 
 done:
-	WRITE_REG32(UARTC_OSCR_REG, bestOsc);
-	WRITE_REG32(UARTC_LCR_REG, value | 0x80);
-	WRITE_REG32(UARTC_DLL_REG, bestDiv & 0xff);
-	WRITE_REG32(UARTC_DLM_REG, (bestDiv >> 8) & 0xff);
-	WRITE_REG32(UARTC_LCR_REG, value & ~0x80);
+	WRITE_REG32(UART0_BASE + 0x14, bestOsc);
+	WRITE_REG32(UART0_BASE + 0x2c, value | 0x80);
+	WRITE_REG32(UART0_BASE + 0x20, bestDiv & 0xff);
+	WRITE_REG32(UART0_BASE + 0x24, (bestDiv >> 8) & 0xff);
+	WRITE_REG32(UART0_BASE + 0x2c, value & ~0x80);
+}
+
+void uart_putc(uint8_t b)
+{
+	WRITE_REG32(UART0_BASE + 0x20, b);
+	while(!(READ_REG32(UART0_BASE + 0x34) & 0x40));
+}
+
+int8_t uart_getc_timeout(uint8_t* out, uint32_t loops)
+{
+	while(loops--)
+	{
+		if(uart_data_tstc(UART0_BASE))
+		{
+			*out = uart_data_getc(UART0_BASE);
+			return 1;
+		}
+	}
+	return 0;
 }
 
 void nds32_dcache_invalidate(void)
@@ -167,12 +150,13 @@ void flash_program_page(uint32_t off, const uint8_t* data)
 		WRITE_REG32(SOC_SPI0_BASE + 0x24, SPIFLASH_CMD_PP);
 	}
 
+	WRITE_REG32(SOC_SPI0_BASE + 0x28, off);
+
 	uint32_t words = (FLASH_PAGE_SIZE + 3) / 4;
 
 	for(uint32_t i = 0; i < words; i++)
 	{
 		while(READ_REG32(SOC_SPI0_BASE + 0x34) & SPI_STATUS_TXFULL);
-		WRITE_REG32(SOC_SPI0_BASE + 0x28, off + i * 4);
 		WRITE_REG32(SOC_SPI0_BASE + 0x2c, ((uint32_t*)data)[i]);
 	}
 
@@ -220,22 +204,7 @@ int flash_erase_chip()
 
 void flash_init(void)
 {
-	WRITE_REG32(SOC_PD_SPI_CONFIG, REG32(SOC_PD_SPI_CONFIG) | 0x80);
-	OR_REG32(SOC_PD_CLK_EN_BASE0, SPI0_APB_CLK_BIT | FLASH_AHB_CLK_BIT);
-	WRITE_REG32(SOC_PD_SMU_BASE + 0x18, 0x80);
-
-	PIN_FUNC_SET(IO_MUX0_GPIO7, FUNC_GPIO7_MSPI_MOSI);
-	PIN_FUNC_SET(IO_MUX1_GPIO8, FUNC_GPIO8_MSPI_HOLD);
-	PIN_FUNC_SET(IO_MUX1_GPIO9, FUNC_GPIO9_MSPI_CLK);
-	PIN_FUNC_SET(IO_MUX1_GPIO10, FUNC_GPIO10_MSPI_CS0);
-	PIN_FUNC_SET(IO_MUX1_GPIO11, FUNC_GPIO11_MSPI_MISO);
-	PIN_FUNC_SET(IO_MUX1_GPIO12, FUNC_GPIO12_MSPI_WP);
-
-	spi_cmd_none(SPIFLASH_STATUS_RSTEN);
-	spi_cmd_none(SPIFLASH_STATUS_RST);
-	udelay(4 * 1000);
-	WRITE_REG32(SOC_SPI0_BASE + 0x40, (READ_REG32(SOC_SPI0_BASE + 0x40) & 0xffffff00) | 0xFF);
-	WRITE_REG32(SOC_SPI0_BASE + 0x50, (READ_REG32(SOC_SPI0_BASE + 0x50) & 0xf) | SPIFLASH_READ_CMD_EB);
+	spiFlash_init(0xFF, 5);
 
 	flash_id = spi_read_cmd(SPIFLASH_CMD_RDID, 3) & 0xFFFFFF;
 
@@ -285,96 +254,36 @@ int crc32_memory(uint32_t addr, uint32_t len, uint32_t* result)
 
 int read_efuse(void)
 {
-	efuse_read_series(0, (unsigned int*)cmd_buf, 0x80 / 4);
-	return 0x80;
-}
-
-int sha256_memory_hardware(uint32_t addr, uint32_t len)
-{
-	sha256((void*)addr, len, cmd_buf);
-	return 1;
-}
-
-void boot_soc_update_cpu_clk(void)
-{
-	unsigned int val;
-	g_efuse_ctrl = efuse_read(EFUSE_CTRL_OFFSET);
-	OR_REG32(SOC_PD_CLK_EN_BASE0, RF_REGF_APB_CLK_BIT | FREF_CLK_EN_BIT);
-
-	if((g_efuse_ctrl & EFUSE_CRYSTAL_OFFSET) == EFUSE_CRYSTAL_40M)
+	for(int i = 0; i < 8; i++)
 	{
-		val = READ_REG32(SOC_RFC_DIG_PLL3);
-		val = (val & 0xFFFFFF0F) | 0x60;
-		WRITE_REG32(SOC_RFC_DIG_PLL3, val);
+		WRITE_REG32(SOC_EFUSE_BASE, 1 | (i << 4));
+		delay_loops(10000);
+		while(1) 
+			if((READ_REG32(SOC_EFUSE_BASE + 0x04) & 1) == 0)
+				break;
+		WRITE_REG32(cmd_buf + i * 4, READ_REG32(SOC_EFUSE_BASE + 0x08));
 	}
-	else
-	{
-		val = READ_REG32(SOC_RFC_DIG_PLL3);
-		val = (val & 0xFFFF7F0F) | 0x60;
-		WRITE_REG32(SOC_RFC_DIG_PLL3, val);
-		val = READ_REG32(SOC_RFC_DIG_PLL2);
-		val = (val & (~(0x7F << 14))) | (0x25 << 14);
-		WRITE_REG32(SOC_RFC_DIG_PLL2, val);
-		WRITE_REG32(SOC_DIG_PLL_REG13, 0x49);
-		WRITE_REG32(SOC_DIG_PLL_REG14, 0x6C4EC5);
-		WRITE_REG32(SOC_DIG_PLL_REG20, 0x49E);
-	}
-
-	val = READ_REG32(SOC_RFC_DIG_PLL1);
-	val |= 1 << 13;
-	WRITE_REG32(SOC_RFC_DIG_PLL1, val);
-
-	udelay(10);
-
-	WRITE_REG32(SOC_DIG_PLL_REG18, 1);
-
-	udelay(10);
-
-	val = READ_REG32(SOC_RFC_DIG_PLL3);
-	val &= ~((1 << 14) | 0xF);
-	WRITE_REG32(SOC_RFC_DIG_PLL3, val);
-
-	WRITE_REG32(SOC_DIG_PLL_REG18, 0);
-
-	udelay(5);
-
-	val = READ_REG32(SOC_RFC_DIG_PLL2);
-	val |= 1 << 27;
-	WRITE_REG32(SOC_RFC_DIG_PLL2, val);
-
-	val = READ_REG32(SOC_DIG_PLL_REG12);
-	val |= 1;
-	WRITE_REG32(SOC_DIG_PLL_REG12, val);
-
-	udelay(20);
-
-	val = READ_REG32(SOC_RFC_DIG_PLL3);
-	val |= 1 << 23;
-	WRITE_REG32(SOC_RFC_DIG_PLL3, val);
-
-	WRITE_REG32(0x00202074, 0x6);
-
-	udelay(1);
-
-	efuse_cfg_160m();
-	WRITE_REG32(SOC_PD_CLK_MUX_BASE, (READ_REG32(SOC_PD_CLK_MUX_BASE) & 0xFFFFFFF0) | CPU_CLK_FREQ_DIV0 | CPU_CLK_SEC_160M);
-	WRITE_REG32(SOC_PD_UART_CLK_SEL, UART_CLK_SEL_160M_DIV2);
-	udelay(1);
+	return 32;
 }
 
 void get_chip_data(void)
 {
-	WRITE_REG32(cmd_buf, 0x4C7959C9); // ECR6600
+	WRITE_REG32(cmd_buf, 0x396440B3);
 }
 
 extern int main(void);
 
 int boot_main(void)
 {
+	uart_putc(0); // simulate bootrom last packet ack
+	WRITE_REG32(CLK_EN_BASE, 0xFFFFFFFF);
+	WRITE_REG32(CLK_DBB, (READ_REG32(CLK_DBB) & (~(1 << 2))) | (1 << 2));
+	WRITE_REG32(CLK_MUX_BASE, 0x11);
+	__builtin_nds32_setgie_dis();
+	__nds32__enable_unaligned();
+	_nds32_enable_dcache(1);
 	extern uint8_t __bss_start__[];
 	extern uint8_t __bss_end__[];
 	memset((void*)__bss_start__, 0, (__bss_end__ - __bss_start__));
-	boot_soc_update_cpu_clk();
-	//__nds32__enable_unaligned();
 	main();
 }

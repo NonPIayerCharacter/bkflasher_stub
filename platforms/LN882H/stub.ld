@@ -33,6 +33,7 @@ SECTIONS
 
 SECTIONS
 {
+	/*memset = 0x209;*/
 	crc16_ccitt = 0x4039;
 	ln_crc32_signle_cal = 0x50f9;
 }

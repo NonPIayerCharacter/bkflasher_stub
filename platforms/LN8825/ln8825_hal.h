@@ -21,4 +21,7 @@
 
 extern uint8_t __StackTop[];
 
+uint16_t crc16_ccitt(const char* buf, int len);
+uint32_t ln_crc32_signle_cal(uint8_t* ptr, int len);
+
 #endif

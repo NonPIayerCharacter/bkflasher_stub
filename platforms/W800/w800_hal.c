@@ -172,7 +172,7 @@ void flash_init(void)
 	flash_id = w800_read_flash_jedec_id();
 }
 
-int crc32_memory_hardware(uint32_t addr, uint32_t len, uint32_t* result)
+int crc32_memory(uint32_t addr, uint32_t len, uint32_t* result)
 {
 	uint32_t state = 0xFFFFFFFFU;
 	uint8_t* current = cmd_buf;
