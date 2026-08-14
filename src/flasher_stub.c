@@ -762,6 +762,8 @@ static void handle_obk_frame(void)
 #if (PLATFORM_RTL8721DA || PLATFORM_RTL8720E) && !defined(DISABLE_KV)
 		case OBK_CMD_KV_GET:
 		{
+			void stub_kv_init(void);
+			stub_kv_init();
 			char kvname[255] = { 0 };
 			strncpy((char*)&kvname, (const char*)cmd_buf, data_len);
 			int kvsize = rt_kv_size(kvname);
@@ -775,6 +777,8 @@ static void handle_obk_frame(void)
 		}
 		case OBK_CMD_KV_SET:
 		{
+			void stub_kv_init(void);
+			stub_kv_init();
 			unsigned char namelen = cmd_buf[0];
 			char kvname[255] = { 0 };
 			strncpy((char*)&kvname, (const char*)cmd_buf + 3, namelen);

@@ -6,8 +6,9 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-#undef BUF_SIZE
-#define BUF_SIZE (512 * 3)
+//#undef BUF_SIZE
+//#define BUF_SIZE (512 * 3)
+#define PLATFORM_SUPPORTS_OTP
 
 #define __I     volatile const       /*!< Defines 'read only' permissions                 */
 #define __O     volatile             /*!< Defines 'write only' permissions                */
@@ -275,6 +276,7 @@ _LONG_CALL_ void FLASH_StructInit(FLASH_InitTypeDef* FLASH_InitStruct);
 _LONG_CALL_ uint32_t FLASH_CalibrationNewCmd(uint32_t NewStatus);
 _LONG_CALL_ void FLASH_RxCmd(uint8_t cmd, uint32_t read_len, uint8_t* read_data);
 _LONG_CALL_ void FLASH_RxData(uint8_t cmd, uint32_t StartAddr, uint32_t read_len, uint8_t* read_data);
+_LONG_CALL_ void FLASH_SetSpiMode(FLASH_InitTypeDef* FLASH_InitStruct, uint8_t SpicBitMode);
 _LONG_CALL_ void FLASH_Erase(uint32_t EraseType, uint32_t Address);
 _LONG_CALL_ uint32_t FLASH_ClockDiv(uint8_t Div);
 _LONG_CALL_ void FLASH_Erase(uint32_t EraseType, uint32_t Address);

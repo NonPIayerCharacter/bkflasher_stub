@@ -5,9 +5,10 @@ const uint16_t Flash_Speed = CLKDIV(2);
 
 #ifndef DISABLE_KV
 
+static bool kv_init = false;
 const uint32_t LFS_FLASH_BASE_ADDR = 0x083E0000;
 const uint32_t LFS_FLASH_SIZE = 0x20000;
-static uint8_t tlsf_area[0x8000];
+static uint8_t tlsf_area[0x2000];
 static tlsf_t memalloc;
 lfs_t g_lfs = { 0 };
 int lfs_nor_read(const struct lfs_config* c, lfs_block_t block, lfs_off_t off, void* buffer, lfs_size_t size);
@@ -69,6 +70,7 @@ int FLASH_WriteStream(uint32_t address, uint32_t len, uint8_t* pbuf)
 
 	return 1;
 }
+
 int lfs_nor_prog(const struct lfs_config* c, lfs_block_t block, lfs_off_t off, const void* buffer, lfs_size_t size)
 {
 	if(size == 0)
@@ -120,6 +122,23 @@ void free(void* ptr)
 	tlsf_free(memalloc, ptr);
 }
 
+void stub_kv_init(void)
+{
+	if(!kv_init)
+	{
+		kv_init = true;
+		memalloc = tlsf_create_with_pool((void*)&tlsf_area, sizeof(tlsf_area));
+		g_nor_lfs_cfg.block_count = LFS_FLASH_SIZE / 4096;
+		int ret = lfs_mount(&g_lfs, &g_nor_lfs_cfg);
+		if(ret == LFS_ERR_NOTFMT)
+		{
+			lfs_format(&g_lfs, &g_nor_lfs_cfg);
+			lfs_mount(&g_lfs, &g_nor_lfs_cfg);
+		}
+		rt_kv_init();
+	}
+}
+
 #endif
 
 void uart_putc(uint8_t b)
@@ -160,17 +179,6 @@ void flash_init(void)
 	}
 	FLASH_StructInit(&flash_init_para);
 	FLASH_RxCmd(flash_init_para.FLASH_cmd_rd_id, 3, (uint8_t*)&flash_id);
-
-#ifndef DISABLE_KV
-	g_nor_lfs_cfg.block_count = LFS_FLASH_SIZE / 4096;
-	int ret = lfs_mount(&g_lfs, &g_nor_lfs_cfg);
-	if(ret == LFS_ERR_NOTFMT)
-	{
-		lfs_format(&g_lfs, &g_nor_lfs_cfg);
-		lfs_mount(&g_lfs, &g_nor_lfs_cfg);
-	}
-	rt_kv_init();
-#endif
 }
 
 void flash_program_page(uint32_t off, const uint8_t* data)
@@ -218,6 +226,7 @@ int flash_erase_chip()
 	return 1;
 }
 
+__attribute__((optimize("O1")))
 int sha256_memory_hardware(uint32_t addr, uint32_t len)
 {
 	__attribute__((aligned(32))) uint8_t hash[32] = { 0 };
@@ -243,6 +252,39 @@ int read_efuse(void)
 	OTP_LogicalMap_Read((uint8_t*)&cmd_buf, 0, 0x400);
 	return 0x400;
 }
+
+/*
+__attribute__((optimize("O1")))
+uint32_t hal_read_otp(uint32_t otp_block_size, uint32_t otp_block_count, uint32_t otp_interval, uint32_t otp_start_addr, uint32_t otp_mode)
+{
+	FLASH_SetSpiMode(&flash_init_para, 0);
+	uint32_t out_offset = 0;
+	for(uint32_t blk = 0; blk < otp_block_count; ++blk)
+	{
+		uint32_t addr = otp_start_addr + blk * otp_interval;
+		uint32_t remain = otp_block_size;
+
+		while(remain > 0)
+		{
+			uint32_t len = remain > 4 ? 4 : remain;
+			if(otp_mode)
+				FLASH_RxData(0x03, addr, len, cmd_buf + out_offset);
+			else
+				FLASH_RxData(0x48, addr, len, cmd_buf + out_offset);
+			addr += len;
+			out_offset += len;
+			remain -= len;
+		}
+	}
+	FLASH_SetSpiMode(&flash_init_para, flash_init_para.FLASH_cur_bitmode);
+	return out_offset;
+}
+
+void hal_spi_cmd(uint8_t cmd)
+{
+	FLASH_RxCmd(cmd, 0, 0);
+}
+*/
 
 void get_chip_data(void)
 {
@@ -395,10 +437,6 @@ __attribute__((used)) void flasher_stub(void)
 	RCC_PeriphClockCmd(APBPeriph_LX, APBPeriph_LX_CLOCK, 1);
 
 	CRYPTO_SHA_Init(NULL);
-
-#ifndef DISABLE_KV
-	memalloc = tlsf_create_with_pool((void*)&tlsf_area, sizeof(tlsf_area));
-#endif
 
 	main();
 }

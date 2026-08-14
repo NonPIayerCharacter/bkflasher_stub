@@ -5,9 +5,10 @@ const uint16_t Flash_Speed = CLKDIV(2);
 
 #ifndef DISABLE_KV
 
+static bool kv_init = false;
 const uint32_t LFS_FLASH_BASE_ADDR = 0x083E0000;
 const uint32_t LFS_FLASH_SIZE = 0x20000;
-static uint8_t tlsf_area[0x8000];
+static uint8_t tlsf_area[0x2000];
 static tlsf_t memalloc;
 lfs_t g_lfs = { 0 };
 int lfs_nor_read(const struct lfs_config* c, lfs_block_t block, lfs_off_t off, void* buffer, lfs_size_t size);
@@ -69,6 +70,7 @@ int FLASH_WriteStream(uint32_t address, uint32_t len, uint8_t* pbuf)
 
 	return 1;
 }
+
 int lfs_nor_prog(const struct lfs_config* c, lfs_block_t block, lfs_off_t off, const void* buffer, lfs_size_t size)
 {
 	if(size == 0)
@@ -118,6 +120,23 @@ void* realloc(void* ptr, size_t size)
 void free(void* ptr)
 {
 	tlsf_free(memalloc, ptr);
+}
+
+void stub_kv_init(void)
+{
+	if(!kv_init)
+	{
+		kv_init = true;
+		memalloc = tlsf_create_with_pool((void*)&tlsf_area, sizeof(tlsf_area));
+		g_nor_lfs_cfg.block_count = LFS_FLASH_SIZE / 4096;
+		int ret = lfs_mount(&g_lfs, &g_nor_lfs_cfg);
+		if(ret == LFS_ERR_NOTFMT)
+		{
+			lfs_format(&g_lfs, &g_nor_lfs_cfg);
+			lfs_mount(&g_lfs, &g_nor_lfs_cfg);
+		}
+		rt_kv_init();
+	}
 }
 
 #endif
@@ -214,6 +233,7 @@ int flash_erase_chip()
 	return 1;
 }
 
+__attribute__((optimize("O1")))
 int sha256_memory_hardware(uint32_t addr, uint32_t len)
 {
 	__attribute__((aligned(32))) uint8_t hash[32] = { 0 };

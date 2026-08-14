@@ -254,6 +254,38 @@ int read_efuse(void)
 	return 512;
 }
 
+/*
+uint32_t hal_read_otp(uint32_t otp_block_size, uint32_t otp_block_count, uint32_t otp_interval, uint32_t otp_start_addr, uint32_t otp_mode)
+{
+	FLASH_SetSpiMode(&flash_init_para, SpicOneBitMode);
+	uint32_t out_offset = 0;
+	for(uint32_t blk = 0; blk < otp_block_count; ++blk)
+	{
+		uint32_t addr = otp_start_addr + blk * otp_interval;
+		uint32_t remain = otp_block_size;
+
+		while(remain > 0)
+		{
+			uint32_t len = remain > 4 ? 4 : remain;
+			if(otp_mode)
+				FLASH_RxData(0x03, addr, len, cmd_buf + out_offset);
+			else
+				FLASH_RxData(0x48, addr, len, cmd_buf + out_offset);
+			addr += len;
+			out_offset += len;
+			remain -= len;
+		}
+	}
+	FLASH_SetSpiMode(&flash_init_para, flash_init_para.FLASH_cur_bitmode);
+	return out_offset;
+}
+
+void hal_spi_cmd(uint8_t cmd)
+{
+	FLASH_RxCmd(cmd, 0, 0);
+}
+*/
+
 void get_chip_data(void)
 {
 	WRITE_REG32(cmd_buf, 0x43B186D6); // RTL8710B

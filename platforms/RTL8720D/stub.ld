@@ -49,6 +49,7 @@ SECTIONS
 	DelayUs                 = 0x14c3;
 	EFUSE_LogicalMap_Read   = 0x1965;
 	FLASH_SW_CS_Control     = 0x1c51;
+	FLASH_SetSpiMode        = 0x1c91;
 	FLASH_RxCmd             = 0x1d1d;
 	FLASH_WaitBusy          = 0x1d89;
 	FLASH_RxData            = 0x1df5;
