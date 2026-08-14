@@ -91,7 +91,7 @@ static int spi_otp_read_region(uint32_t cmd, uint32_t addr, uint32_t len, uint8_
 		SPI_TRANSCTRL_RCNT(len - 1));
 
 	WRITE_REG32(SOC_SPI0_BASE + 0x28, addr);
-	WRITE_REG32(SOC_SPI0_BASE + 0x24, SPIFLASH_CMD_OTP_RD);
+	WRITE_REG32(SOC_SPI0_BASE + 0x24, cmd);
 
 	uint32_t words = len / 4;
 	uint32_t* dst = (uint32_t*)pdata;
@@ -526,7 +526,7 @@ int read_otp(void)
 		{
 			uint32_t len = remain > 256 ? 256 : remain;
 			if(otp_mode)
-				spi_otp_read_region(0x48, addr, len, cmd_buf + out_offset);
+				spi_otp_read_region(0xEB, addr, len, cmd_buf + out_offset);
 			else
 				spi_otp_read_region(SPIFLASH_CMD_OTP_RD, addr, len, cmd_buf + out_offset);
 			addr += len;

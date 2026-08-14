@@ -212,17 +212,15 @@ int flash_erase_chip()
 
 void flash_init(void)
 {
+	spi_wip_reset();
 	WRITE_REG32(FLASH_CTL_TX_BLOCK_SIZE_REG, 3 << 8);
-	uint32_t status3 = READ_REG32(FLASH_CTL_RX_FIFO_DATA_REG);
-	uint32_t status4 = READ_REG32(FLASH_CTL_RX_FIFO_DATA_REG);
-	uint32_t status5 = READ_REG32(FLASH_CTL_RX_FIFO_DATA_REG);
 	wait_busy_down();
 	spi_wip_reset();
 	WRITE_REG32(FLASH_CTL_TX_CMD_ADDR_REG, CMD_READ_FLASH_ID);
 	wait_busy_down();
-	status3 = READ_REG32(FLASH_CTL_RX_FIFO_DATA_REG);
-	status4 = READ_REG32(FLASH_CTL_RX_FIFO_DATA_REG);
-	status5 = READ_REG32(FLASH_CTL_RX_FIFO_DATA_REG);
+	uint32_t status3 = READ_REG32(FLASH_CTL_RX_FIFO_DATA_REG);
+	uint32_t status4 = READ_REG32(FLASH_CTL_RX_FIFO_DATA_REG);
+	uint32_t status5 = READ_REG32(FLASH_CTL_RX_FIFO_DATA_REG);
 	flash_id = ((status5 & 0xFF) << 16) | ((status4 & 0xFF) << 8) | (status3 & 0xFF);
 }
 
@@ -230,14 +228,14 @@ static void rda_crc_start(uint32_t src, uint32_t len)
 {
 	RDA_DMACFG->dma_src = src;
 	RDA_DMACFG->dma_len = len;
-	RDA_DMACFG->dma_int_out &= ~1u;
-	RDA_DMACFG->dma_ctrl = 0x20000008;
+	RDA_DMACFG->dma_int_out &= ~AHB_DMA_DONE;
+	RDA_DMACFG->dma_ctrl = 0x08 | (TX_CRC_MODE << 28);
 }
 
 static void dma_wait(void)
 {
-	while((RDA_DMACFG->dma_int_out & 1u) == 0);
-	RDA_DMACFG->dma_int_out &= ~1u;
+	while((RDA_DMACFG->dma_int_out & AHB_DMA_DONE) == 0);
+	//RDA_DMACFG->dma_int_out &= ~AHB_DMA_DONE;
 }
 
 int crc32_memory(uint32_t addr, uint32_t len, uint32_t* result)
@@ -247,7 +245,7 @@ int crc32_memory(uint32_t addr, uint32_t len, uint32_t* result)
 	uint32_t chunks = len / CRC_CHUNK_SIZE;
 	uint32_t tail = len % CRC_CHUNK_SIZE;
 
-	uint32_t* buf[2] = { (uint32_t*)cmd_buf, (uint32_t*)cmd_buf + CRC_CHUNK_SIZE };
+	uint32_t* buf[2] = { (uint32_t*)cmd_buf, (uint32_t*)(cmd_buf + CRC_CHUNK_SIZE) };
 
 	uint32_t cur = 0;
 
@@ -256,21 +254,33 @@ int crc32_memory(uint32_t addr, uint32_t len, uint32_t* result)
 	RDA_DMACFG->crc_init_val = 0xFFFFFFFF;
 	RDA_DMACFG->crc_out_xorval = 0xFFFFFFFF;
 
-	while(chunks--)
+	if(chunks == 0)
+		goto tail;
+
+	memcpy(buf[0], src, CRC_CHUNK_SIZE);
+	src += CRC_CHUNK_SIZE;
+	rda_crc_start((uint32_t)buf[0], CRC_CHUNK_WORDS);
+	cur = 1;
+
+	while(--chunks)
 	{
 		memcpy(buf[cur], src, CRC_CHUNK_SIZE);
-		rda_crc_start((uint32_t)buf[cur], CRC_CHUNK_WORDS);
-		dma_wait();
 		src += CRC_CHUNK_SIZE;
+		dma_wait();
+		rda_crc_start((uint32_t)buf[cur], CRC_CHUNK_WORDS);
+
 		cur ^= 1;
 	}
 
+tail:
 	if(tail)
 	{
 		memcpy(buf[cur ^ 1], src, tail);
+		dma_wait();
 		rda_crc_start((uint32_t)buf[cur ^ 1], tail >> 2);
 		dma_wait();
 	}
+	else dma_wait();
 
 	if(result) *result = RDA_DMACFG->crc_out_val;
 	return 1;
@@ -283,34 +293,34 @@ uint16_t efuse_read_page(uint8_t page)
 	while(*reg & BIT31);
 
 	*reg = 0x03B80000;
-	for(uint32_t i = 0; i < 0x2000U; ++i) { __asm volatile("nop"); };
+	delay_loops(2000);
 
 	while(*reg & BIT31);
 
 	uint32_t base = (*reg & 0x0000FF00) | ((page << 4) & 0xFF);
 
 	*reg = 0x02B80000 | base | 0x0E;
-	for(uint32_t i = 0; i < 0x2000U; ++i) { __asm volatile("nop"); };
+	delay_loops(2000);
 
 	while(*reg & BIT31);
 
 	*reg = 0x02B80000 | base | 0x0F;
-	for(uint32_t i = 0; i < 0x2000U; ++i) { __asm volatile("nop"); };
+	delay_loops(2000);
 
 	while(*reg & BIT31);
 
 	*reg = 0x02B80000 | base | 0x0E;
-	for(uint32_t i = 0; i < 0x2000U; ++i) { __asm volatile("nop"); };
+	delay_loops(2000);
 
 	while(*reg & BIT31);
 
 	*reg = 0x02B80000 | base;
-	for(uint32_t i = 0; i < 0x2000U; ++i) { __asm volatile("nop"); };
+	delay_loops(2000);
 
 	while(*reg & BIT31);
 
 	*reg = 0x03BF0000;
-	for(uint32_t i = 0; i < 0x2000U; ++i) { __asm volatile("nop"); };
+	delay_loops(2000);
 
 	while(*reg & BIT31);
 
@@ -327,6 +337,113 @@ int read_efuse(void)
 		cmd_buf[(page * 2 + 1)] = (uint8_t)(value >> 8);
 	}
 	return 32;
+}
+
+int read_otp(void)
+{
+	uint32_t otp_block_size = 0;
+	uint32_t otp_block_count = 0;
+	uint32_t otp_interval = 0;
+	uint32_t otp_start_addr = 0;
+	switch(flash_id)
+	{
+		case 0x1440c8:
+		case 0x1540c8:
+			otp_interval = 0x1000;
+			otp_block_size = 1024;
+			otp_block_count = 2;
+			break;
+		case 0x1640c8:
+		case 0x1840c8:
+		case 0x15400b:
+		case 0x16400b:
+		case 0x17400b:
+		case 0x17405e:
+		case 0x18405e:
+			otp_start_addr = 0x1000;
+			otp_interval = 0x1000;
+			otp_block_size = 1024;
+			otp_block_count = 3;
+			break;
+		case 0x1460c8:
+			otp_start_addr = 0x1000;
+			otp_interval = 0x1000;
+			otp_block_size = 512;
+			otp_block_count = 3;
+			break;
+		case 0x164068:
+		case 0x1640ef:
+		case 0x144020:
+		case 0x154020:
+		case 0x164020:
+		case 0x174020:
+		case 0x14605e:
+		case 0x15605e:
+		case 0x16405e:
+			otp_start_addr = 0x1000;
+			otp_interval = 0x1000;
+			otp_block_size = 256;
+			otp_block_count = 3;
+			break;
+		case 0x14400b:
+			otp_start_addr = 0x1000;
+			// fall through
+		case 0x1540a1:
+		case 0x1560eb:
+		case 0x1560c4:
+			otp_interval = 256;
+			otp_block_size = 256;
+			otp_block_count = 4;
+			break;
+		case 0x1660c4:
+			otp_interval = 1024;
+			otp_block_size = 1024;
+			otp_block_count = 3;
+			break;
+		case 0x146085:
+			otp_start_addr = 0x1000;
+			otp_interval = 0x1000;
+			otp_block_size = 512;
+			otp_block_count = 3;
+			break;
+		case 0x156085:
+		case 0x154285:
+		case 0x152085:
+		case 0x166085:
+			otp_start_addr = 0x1000;
+			otp_interval = 0x1000;
+			otp_block_size = 1024;
+			otp_block_count = 3;
+			break;
+		default:
+			return 0;
+	}
+
+	size_t out_offset = 0;
+	for(uint32_t blk = 0; blk < otp_block_count; ++blk)
+	{
+		uint32_t addr = otp_start_addr + blk * otp_interval;
+		uint32_t remain = otp_block_size;
+
+		while(remain > 0)
+		{
+			uint32_t len = remain > 16 ? 16 : remain;
+			spi_wip_reset();
+			WRITE_REG32(FLASH_CTL_TX_BLOCK_SIZE_REG, len << 8);
+			wait_busy_down();
+			spi_wip_reset();
+			WRITE_REG32(FLASH_CTL_TX_CMD_ADDR_REG, 0x48 | (addr << 8));
+			wait_busy_down();
+			for(uint32_t i = 0; i < len; i++)
+				(cmd_buf + out_offset)[i] = READ_REG32(FLASH_CTL_RX_FIFO_DATA_REG) & 0xFF;
+			spi_wip_reset();
+			addr += len;
+			out_offset += len;
+			remain -= len;
+		}
+	}
+
+	return out_offset;
 }
 
 void get_chip_data(void)

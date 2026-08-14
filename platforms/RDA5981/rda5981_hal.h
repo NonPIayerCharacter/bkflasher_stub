@@ -187,6 +187,25 @@ typedef struct
 #define CMD_READ_FLASH_ID           (0x0000009FU)
 #define CMD_64KB_BLOCK_ERASE        (0x000000D8U)
 
+typedef enum _dma_mode
+{
+	NORMAL_MODE = 0,
+	AES_ENC_MODE = 1,
+	AES_DEC_MODE = 5,
+	TX_CRC_MODE = 2,
+	RX_CRC_MODE = 6
+}dma_mode;
+
+typedef enum _dma_int_out_dscp
+{
+	AHB_DMA_DONE = (1 << 0),
+	PRNG_ALERT = (1 << 1),
+	TRNG_ON_FLY_TEST_FAIL = (1 << 2),
+	TRNG_START_TEST_FAIL = (1 << 3),
+	TRNG_DATA_READY = (1 << 4),
+	CIOS_DONE = (1 << 5)
+}dma_int_out_dscp;
+
 static inline void uart_putc(uint8_t c)
 {
 	while((RDA_UART0->FSR & TXFIFO_FULL_MASK) != 0);
