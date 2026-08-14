@@ -339,87 +339,9 @@ int read_efuse(void)
 	return 32;
 }
 
-int read_otp(void)
+uint32_t hal_read_otp(uint32_t otp_block_size, uint32_t otp_block_count, uint32_t otp_interval, uint32_t otp_start_addr, uint32_t otp_mode)
 {
-	uint32_t otp_block_size = 0;
-	uint32_t otp_block_count = 0;
-	uint32_t otp_interval = 0;
-	uint32_t otp_start_addr = 0;
-	switch(flash_id)
-	{
-		case 0x1440c8:
-		case 0x1540c8:
-			otp_interval = 0x1000;
-			otp_block_size = 1024;
-			otp_block_count = 2;
-			break;
-		case 0x1640c8:
-		case 0x1840c8:
-		case 0x15400b:
-		case 0x16400b:
-		case 0x17400b:
-		case 0x17405e:
-		case 0x18405e:
-			otp_start_addr = 0x1000;
-			otp_interval = 0x1000;
-			otp_block_size = 1024;
-			otp_block_count = 3;
-			break;
-		case 0x1460c8:
-			otp_start_addr = 0x1000;
-			otp_interval = 0x1000;
-			otp_block_size = 512;
-			otp_block_count = 3;
-			break;
-		case 0x164068:
-		case 0x1640ef:
-		case 0x144020:
-		case 0x154020:
-		case 0x164020:
-		case 0x174020:
-		case 0x14605e:
-		case 0x15605e:
-		case 0x16405e:
-			otp_start_addr = 0x1000;
-			otp_interval = 0x1000;
-			otp_block_size = 256;
-			otp_block_count = 3;
-			break;
-		case 0x14400b:
-			otp_start_addr = 0x1000;
-			// fall through
-		case 0x1540a1:
-		case 0x1560eb:
-		case 0x1560c4:
-			otp_interval = 256;
-			otp_block_size = 256;
-			otp_block_count = 4;
-			break;
-		case 0x1660c4:
-			otp_interval = 1024;
-			otp_block_size = 1024;
-			otp_block_count = 3;
-			break;
-		case 0x146085:
-			otp_start_addr = 0x1000;
-			otp_interval = 0x1000;
-			otp_block_size = 512;
-			otp_block_count = 3;
-			break;
-		case 0x156085:
-		case 0x154285:
-		case 0x152085:
-		case 0x166085:
-			otp_start_addr = 0x1000;
-			otp_interval = 0x1000;
-			otp_block_size = 1024;
-			otp_block_count = 3;
-			break;
-		default:
-			return 0;
-	}
-
-	size_t out_offset = 0;
+	uint32_t out_offset = 0;
 	for(uint32_t blk = 0; blk < otp_block_count; ++blk)
 	{
 		uint32_t addr = otp_start_addr + blk * otp_interval;
@@ -432,7 +354,7 @@ int read_otp(void)
 			WRITE_REG32(FLASH_CTL_TX_BLOCK_SIZE_REG, len << 8);
 			wait_busy_down();
 			spi_wip_reset();
-			WRITE_REG32(FLASH_CTL_TX_CMD_ADDR_REG, 0x48 | (addr << 8));
+			WRITE_REG32(FLASH_CTL_TX_CMD_ADDR_REG, otp_mode ? 0x03 : 0x48 | (addr << 8));
 			wait_busy_down();
 			for(uint32_t i = 0; i < len; i++)
 				(cmd_buf + out_offset)[i] = READ_REG32(FLASH_CTL_RX_FIFO_DATA_REG) & 0xFF;
@@ -442,8 +364,16 @@ int read_otp(void)
 			remain -= len;
 		}
 	}
-
 	return out_offset;
+}
+
+// untested
+void hal_spi_cmd(uint8_t cmd)
+{
+	spi_wip_reset();
+	WRITE_REG32(FLASH_CTL_TX_CMD_ADDR_REG, cmd);
+	wait_busy_down();
+	spi_wip_reset();
 }
 
 void get_chip_data(void)

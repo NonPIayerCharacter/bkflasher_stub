@@ -7,7 +7,8 @@
 #include <stdbool.h>
 
 #undef BUF_SIZE
-#define BUF_SIZE 1024
+#define BUF_SIZE 0x1000
+#define PLATFORM_SUPPORTS_OTP
 
 #define SOC_PD_SMU_BASE					(0x00202000)
 #define SOC_RFC_BASE					(0x00203000)
@@ -86,10 +87,6 @@
 #define SPIFLASH_CMD_BE					0xD8
 #define SPIFLASH_CMD_CE					0xC7
 #define SPIFLASH_CMD_OTP_RD				0x48
-#define SPIFLASH_CMD_OTP_ENTRY			0x3A
-#define SPIFLASH_CMD_OTP_EXIT			0x04
-#define SPIFLASH_CMD_OTP_ENTRY_KH		0xB1
-#define SPIFLASH_CMD_OTP_EXIT_KH		0xC1
 #define SPIFLASH_STATUS_WIP				0x01
 #define SPIFLASH_STATUS_WEL				0x02
 #define SPIFLASH_STATUS_BPX				0x7C

@@ -165,6 +165,36 @@ int read_efuse(void)
 	return 1024;
 }
 
+/*
+uint32_t hal_read_otp(uint32_t otp_block_size, uint32_t otp_block_count, uint32_t otp_interval, uint32_t otp_start_addr, uint32_t otp_mode)
+{
+	uint32_t out_offset = 0;
+	for(uint32_t blk = 0; blk < otp_block_count; ++blk)
+	{
+		uint32_t addr = otp_start_addr + blk * otp_interval;
+		uint32_t remain = otp_block_size;
+
+		while(remain > 0)
+		{
+			uint32_t len = remain > 16 ? 16 : remain;
+			if(otp_mode)
+				FLASH_RxData(0, addr, len, cmd_buf + out_offset);
+			else
+				FLASH_RxData(0x48, addr, len, cmd_buf + out_offset);
+			addr += len;
+			out_offset += len;
+			remain -= len;
+		}
+	}
+	return out_offset;
+}
+
+void hal_spi_cmd(uint8_t cmd)
+{
+	FLASH_RxCmd(cmd, 0, 0);
+}
+*/
+
 static inline uint32_t SYSCFG_CUTVersion_U(void)
 {
 	uint32_t tmp = (READ_REG32(0x48000000 + 0x000C) >> 8) & 0xF;

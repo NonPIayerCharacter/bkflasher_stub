@@ -51,6 +51,7 @@ SECTIONS
 	FLASH_SW_CS_Control     = 0x1c51;
 	FLASH_RxCmd             = 0x1d1d;
 	FLASH_WaitBusy          = 0x1d89;
+	FLASH_RxData            = 0x1df5;
 	FLASH_WriteEn           = 0x1f3d;
 	FLASH_TxData256B        = 0x1f61;
 	FLASH_TxData12B         = 0x2049;

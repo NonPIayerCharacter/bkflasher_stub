@@ -98,6 +98,11 @@
 #define WATCHDOG_REFRESH()
 #endif
 
+#define SPIFLASH_CMD_OTP_ENTRY			0x3A
+#define SPIFLASH_CMD_OTP_EXIT			0x04
+#define SPIFLASH_CMD_OTP_ENTRY_KH		0xB1
+#define SPIFLASH_CMD_OTP_EXIT_KH		0xC1
+
 typedef struct
 {
 	uint32_t data_len;

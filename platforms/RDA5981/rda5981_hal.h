@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+#define PLATFORM_SUPPORTS_OTP
+
 #define FLASH_CTL_REG_BASE          (0x17FFF000U)
 #define FLASH_CTL_TX_CMD_ADDR_REG   (FLASH_CTL_REG_BASE + 0x00)
 #define FLASH_CTL_TX_BLOCK_SIZE_REG (FLASH_CTL_REG_BASE + 0x04)

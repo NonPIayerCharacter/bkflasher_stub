@@ -16,6 +16,8 @@
 #include "qspi.h"
 #include "proj_config.h"
 
+//#define PLATFORM_SUPPORTS_OTP
+
 #define FLASH_BASE CACHE_FLASH_BASE
 #undef FLASH_PAGE_SIZE
 

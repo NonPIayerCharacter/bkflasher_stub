@@ -196,8 +196,159 @@ int read_efuse(void)
 	return 0;
 }
 
+#ifdef PLATFORM_SUPPORTS_OTP
+
+__attribute__((weak))
+uint32_t hal_read_otp(uint32_t otp_block_size, uint32_t otp_block_count, uint32_t otp_interval, uint32_t otp_start_addr, uint32_t otp_mode)
+{
+	return 0;
+}
+
+__attribute__((weak))
+void hal_spi_cmd(uint8_t cmd) { }
+
+__attribute__((weak))
+int read_otp(void)
+{
+	uint32_t otp_block_size = 0;
+	uint32_t otp_block_count = 0;
+	uint32_t otp_interval = 0;
+	uint32_t otp_start_addr = 0;
+	uint32_t otp_mode = 0;
+	switch(flash_id)
+	{
+		case 0x1440c8:
+		case 0x1540c8:
+			otp_interval = 0x1000;
+			otp_block_size = 1024;
+			otp_block_count = 2;
+			break;
+		case 0x1640c8:
+		case 0x1840c8:
+		case 0x15400b:
+		case 0x16400b:
+		case 0x17400b:
+		case 0x17405e:
+		case 0x18405e:
+			otp_start_addr = 0x1000;
+			otp_interval = 0x1000;
+			otp_block_size = 1024;
+			otp_block_count = 3;
+			break;
+		case 0x1460c8:
+			otp_start_addr = 0x1000;
+			otp_interval = 0x1000;
+			otp_block_size = 512;
+			otp_block_count = 3;
+			break;
+		case 0x164068:
+		case 0x1640ef:
+		case 0x144020:
+		case 0x154020:
+		case 0x164020:
+		case 0x174020:
+		case 0x14605e:
+		case 0x15605e:
+		case 0x16405e:
+			otp_start_addr = 0x1000;
+			otp_interval = 0x1000;
+			otp_block_size = 256;
+			otp_block_count = 3;
+			break;
+		case 0x15701c:
+			otp_start_addr = 0x1FD000;
+			otp_interval = 0x1000;
+			otp_block_size = 512;
+			otp_block_count = 3;
+			otp_mode = 1;
+			break;
+		case 0x16701c:
+			otp_start_addr = 0x3FD000;
+			otp_interval = 0x1000;
+			otp_block_size = 512;
+			otp_block_count = 3;
+			otp_mode = 1;
+			break;
+		case 0x16301c:
+			otp_start_addr = 0x3FF000;
+			otp_interval = 0x1000;
+			otp_block_size = 512;
+			otp_block_count = 1;
+			otp_mode = 1;
+			break;
+		case 0x14400b:
+			otp_start_addr = 0x1000;
+			// fall through
+		case 0x1540a1:
+		case 0x1560eb:
+		case 0x1560c4:
+			otp_interval = 256;
+			otp_block_size = 256;
+			otp_block_count = 4;
+			break;
+		case 0x1660c4:
+			otp_interval = 1024;
+			otp_block_size = 1024;
+			otp_block_count = 3;
+			break;
+		case 0x1720c2:
+		case 0x1820c2:
+			otp_interval = 512;
+			otp_block_size = 512;
+			otp_block_count = 2;
+			break;
+		case 0x146085:
+			otp_start_addr = 0x1000;
+			otp_interval = 0x1000;
+			otp_block_size = 512;
+			otp_block_count = 3;
+			break;
+		case 0x156085:
+		case 0x154285:
+		case 0x152085:
+		case 0x166085:
+			otp_start_addr = 0x1000;
+			otp_interval = 0x1000;
+			otp_block_size = 1024;
+			otp_block_count = 3;
+			break;
+		default:
+			return 0;
+	}
+
+	if(otp_block_size * otp_block_count > BUF_SIZE) return 0;
+
+	if(flash_id == 0x16701c || flash_id == 0x15701c || flash_id == 0x16301c)
+	{
+		hal_spi_cmd(SPIFLASH_CMD_OTP_ENTRY);
+	}
+
+	if(flash_id == 0x1720c2 || flash_id == 0x1820c2)
+	{
+		hal_spi_cmd(SPIFLASH_CMD_OTP_ENTRY_KH);
+	}
+
+	uint32_t read_len = hal_read_otp(otp_block_size, otp_block_count, otp_interval, otp_start_addr, otp_mode);
+
+	if(flash_id == 0x16701c || flash_id == 0x15701c || flash_id == 0x16301c)
+	{
+		hal_spi_cmd(SPIFLASH_CMD_OTP_EXIT);
+	}
+
+	if(flash_id == 0x1720c2 || flash_id == 0x1820c2)
+	{
+		hal_spi_cmd(SPIFLASH_CMD_OTP_EXIT_KH);
+	}
+
+	return read_len;
+}
+
+#else
+
 __attribute__((weak))
 int read_otp(void)
 {
 	return 0;
 }
+
+#endif

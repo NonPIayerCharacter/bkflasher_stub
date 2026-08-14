@@ -15,6 +15,8 @@
 #include "hal/hal_misc.h"
 #include "hal/hal_uart.h"
 
+//#define PLATFORM_SUPPORTS_OTP
+
 #define FLASH_BASE CACHE_FLASH_BASE
 #undef FLASH_PAGE_SIZE
 
