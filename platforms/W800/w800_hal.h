@@ -1,6 +1,8 @@
 #ifndef W800_HAL_H
 #define W800_HAL_H
 
+#define PLATFORM_SUPPORTS_OTP
+
 #define APB_CLK                    40000000U
 
 #define HR_APB_BASE_ADDR           (0x40010000U)

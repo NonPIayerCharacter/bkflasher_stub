@@ -295,6 +295,40 @@ void get_chip_data(void)
 	WRITE_REG32(cmd_buf + 8, READ_REG32(0x400001F0));
 }
 
+
+uint32_t hal_read_otp(uint32_t otp_block_size, uint32_t otp_block_count, uint32_t otp_interval, uint32_t otp_start_addr, uint32_t otp_mode)
+{
+	uint32_t out_offset = 0;
+	for(uint32_t blk = 0; blk < otp_block_count; ++blk)
+	{
+		uint32_t addr = otp_start_addr + blk * otp_interval;
+		uint32_t remain = otp_block_size;
+
+		while(remain > 0)
+		{
+			uint32_t len = remain > 4 ? 4 : remain;
+			if(otp_mode)
+				hal_flash_stubs.hal_flash_stream_read(&hal_spic_adaptor, len, addr, cmd_buf + out_offset);
+			else
+			{
+				uint8_t orig_cmd = hal_spic_adaptor.read_cmd;
+				hal_spic_adaptor.read_cmd = 0x48;
+				hal_flash_stubs.hal_flash_stream_read(&hal_spic_adaptor, len, addr, cmd_buf + out_offset);
+				hal_spic_adaptor.read_cmd = orig_cmd;
+			}
+			addr += len;
+			out_offset += len;
+			remain -= len;
+		}
+	}
+	return out_offset;
+}
+
+void hal_spi_cmd(uint8_t cmd)
+{
+	hal_spic_stubs.spic_tx_cmd(&hal_spic_adaptor, cmd, 0, 0);
+}
+
 #undef memset
 #undef memcpy
 __attribute__((used))

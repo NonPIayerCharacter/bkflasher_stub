@@ -61,6 +61,7 @@ SECTIONS
 	FLASH_RxCmd = 0x7465;
 	FLASH_WaitBusy = 0x74cd;
 	FLASH_RxData = 0x754d;
+	FLASH_TxCmd = 0x75cd;
 	FLASH_WriteEn = 0x763d;
 	FLASH_TxData12B = 0x7661;
 	FLASH_SetStatus = 0x7735;

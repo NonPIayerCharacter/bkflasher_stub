@@ -745,9 +745,14 @@ static void handle_obk_frame(void)
 		case OBK_CMD_READ_OTP:
 		{
 			int len = read_otp();
-			if(!len)
+			if(len == 0)
 			{
 				obk_ack(type, OBK_STATUS_ERROR);
+				return;
+			}
+			else if(len < 0)
+			{
+				obk_ack(type, OBK_STATUS_LEN_ERROR);
 				return;
 			}
 			obk_data_reply(type, cmd_buf, len, OBK_STATUS_SUCCESS);

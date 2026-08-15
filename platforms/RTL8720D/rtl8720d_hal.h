@@ -274,6 +274,7 @@ _LONG_CALL_ void DelayUs(uint32_t us);
 _LONG_CALL_ uint8_t FLASH_Init(uint8_t SpicBitMode);
 _LONG_CALL_ void FLASH_StructInit(FLASH_InitTypeDef* FLASH_InitStruct);
 _LONG_CALL_ uint32_t FLASH_CalibrationNewCmd(uint32_t NewStatus);
+_LONG_CALL_ void FLASH_TxCmd(uint8_t cmd, uint8_t DataPhaseLen, uint8_t* pData);
 _LONG_CALL_ void FLASH_RxCmd(uint8_t cmd, uint32_t read_len, uint8_t* read_data);
 _LONG_CALL_ void FLASH_RxData(uint8_t cmd, uint32_t StartAddr, uint32_t read_len, uint8_t* read_data);
 _LONG_CALL_ void FLASH_SetSpiMode(FLASH_InitTypeDef* FLASH_InitStruct, uint8_t SpicBitMode);

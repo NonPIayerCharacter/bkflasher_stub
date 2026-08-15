@@ -211,3 +211,33 @@ void get_chip_data(void)
 	WRITE_REG32(cmd_buf, 0xDC7E93D2); // W80x
 	// todo: get chip id (w800, 801, 806 etc)
 }
+
+uint32_t hal_read_otp(uint32_t otp_block_size, uint32_t otp_block_count, uint32_t otp_interval, uint32_t otp_start_addr, uint32_t otp_mode)
+{
+	uint32_t out_offset = 0;
+	for(uint32_t blk = 0; blk < otp_block_count; ++blk)
+	{
+		uint32_t addr = otp_start_addr + blk * otp_interval;
+		uint32_t remain = otp_block_size;
+
+		while(remain > 0)
+		{
+			uint32_t len = remain > 4 ? 4 : remain;
+			REG32(W800_FLASH_CMD_ADDR) = (otp_mode ? 0x8000C003U : 0xBC00C048U) | (3 << 16);
+			REG32(W800_FLASH_ADDR_REG) = addr & 0x01FFFFFFU;
+			REG32(W800_FLASH_CMD_START) = W800_FLASH_CMD_START_BIT;
+			delay_loops(5000);
+			WRITE_REG32(cmd_buf + out_offset, REG32(W800_RSA_SCRATCH_BASE));
+			addr += len;
+			out_offset += len;
+			remain -= len;
+		}
+	}
+	return out_offset;
+}
+
+void hal_spi_cmd(uint8_t cmd)
+{
+	//WRITE_REG32(W800_FLASH_CMD_ADDR, cmd);
+	//REG32(W800_FLASH_CMD_START) = W800_FLASH_CMD_START_BIT;
+}

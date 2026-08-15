@@ -10,6 +10,8 @@
 #include "littlefs/lfs.h"
 #include "rtl_kv/kv.h"
 
+#define PLATFORM_SUPPORTS_OTP
+
 #define __I     volatile const       /*!< Defines 'read only' permissions                 */
 #define __O     volatile             /*!< Defines 'write only' permissions                */
 #define __IO    volatile             /*!< Defines 'read / write' permissions              */
@@ -396,7 +398,10 @@ _LONG_CALL_ void DelayUs(uint32_t us);
 _LONG_CALL_ void DelayClkUpdate(uint32_t CpuClk);
 _LONG_CALL_ void FLASH_Erase(uint32_t EraseType, uint32_t Address);
 _LONG_CALL_ void FLASH_TxData(uint32_t StartAddr, uint32_t DataPhaseLen, uint8_t* pData);
+_LONG_CALL_ void FLASH_TxCmd(uint8_t cmd, uint8_t DataPhaseLen, uint8_t* pData);
 _LONG_CALL_ void FLASH_RxCmd(uint8_t cmd, uint32_t read_len, uint8_t* read_data);
+_LONG_CALL_ void FLASH_RxData(uint8_t cmd, uint32_t StartAddr, uint32_t read_len, uint8_t* read_data);
+_LONG_CALL_ void FLASH_SetSpiMode(FLASH_InitTypeDef* FLASH_InitStruct, uint8_t SpicBitMode);
 _LONG_CALL_ void FLASH_StructInit(FLASH_InitTypeDef* FLASH_InitStruct);
 _LONG_CALL_ void FLASH_Addr4ByteEn(void);
 _LONG_CALL_ void FLASH_DeepPowerDown(uint32_t NewState);

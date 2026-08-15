@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+#define PLATFORM_SUPPORTS_OTP
+
 #define __I        volatile const
 #define __O        volatile
 #define __IO       volatile

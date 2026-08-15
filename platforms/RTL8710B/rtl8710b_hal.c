@@ -254,11 +254,11 @@ int read_efuse(void)
 	return 512;
 }
 
-/*
 uint32_t hal_read_otp(uint32_t otp_block_size, uint32_t otp_block_count, uint32_t otp_interval, uint32_t otp_start_addr, uint32_t otp_mode)
 {
 	FLASH_SetSpiMode(&flash_init_para, SpicOneBitMode);
 	uint32_t out_offset = 0;
+	bool any_valid = false;
 	for(uint32_t blk = 0; blk < otp_block_count; ++blk)
 	{
 		uint32_t addr = otp_start_addr + blk * otp_interval;
@@ -267,24 +267,31 @@ uint32_t hal_read_otp(uint32_t otp_block_size, uint32_t otp_block_count, uint32_
 		while(remain > 0)
 		{
 			uint32_t len = remain > 4 ? 4 : remain;
+			uint8_t* dst = cmd_buf + out_offset;
 			if(otp_mode)
-				FLASH_RxData(0x03, addr, len, cmd_buf + out_offset);
+				FLASH_RxData(0x03, addr, len, dst);
 			else
-				FLASH_RxData(0x48, addr, len, cmd_buf + out_offset);
+				FLASH_RxData(0x48, addr, len, dst);
+
+			if(!(dst[0] == 0x00 && dst[1] == 0xFF && dst[2] == 0xFF && dst[3] == 0xFF))
+			{
+				any_valid = true;
+			}
 			addr += len;
 			out_offset += len;
 			remain -= len;
 		}
 	}
 	FLASH_SetSpiMode(&flash_init_para, flash_init_para.FLASH_cur_bitmode);
+	if(!any_valid)
+		return -1;
 	return out_offset;
 }
 
 void hal_spi_cmd(uint8_t cmd)
 {
-	FLASH_RxCmd(cmd, 0, 0);
+	FLASH_TxCmd(cmd, 0, 0);
 }
-*/
 
 void get_chip_data(void)
 {

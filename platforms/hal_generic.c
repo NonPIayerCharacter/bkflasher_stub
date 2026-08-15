@@ -224,24 +224,36 @@ int read_otp(void)
 			otp_block_count = 2;
 			break;
 		case 0x1640c8:
+		case 0x1740c8:
 		case 0x1840c8:
 		case 0x15400b:
 		case 0x16400b:
 		case 0x17400b:
 		case 0x17405e:
 		case 0x18405e:
+		case 0x156085:
+		case 0x166085:
+		case 0x154285:
+		case 0x152085:
+		case 0x162085:
 			otp_start_addr = 0x1000;
 			otp_interval = 0x1000;
 			otp_block_size = 1024;
 			otp_block_count = 3;
 			break;
 		case 0x1460c8:
+		case 0x1560c8:
+		case 0x1660c8:
+		case 0x1760c8:
 			otp_start_addr = 0x1000;
 			otp_interval = 0x1000;
 			otp_block_size = 512;
 			otp_block_count = 3;
 			break;
+		case 0x144068:
+		case 0x154068:
 		case 0x164068:
+		case 0x174068:
 		case 0x1640ef:
 		case 0x144020:
 		case 0x154020:
@@ -250,6 +262,10 @@ int read_otp(void)
 		case 0x14605e:
 		case 0x15605e:
 		case 0x16405e:
+		case 0x1770ef:
+		case 0x1670ef:
+		case 0x1570ef:
+		case 0x1470ef:
 			otp_start_addr = 0x1000;
 			otp_interval = 0x1000;
 			otp_block_size = 256;
@@ -301,15 +317,6 @@ int read_otp(void)
 			otp_start_addr = 0x1000;
 			otp_interval = 0x1000;
 			otp_block_size = 512;
-			otp_block_count = 3;
-			break;
-		case 0x156085:
-		case 0x154285:
-		case 0x152085:
-		case 0x166085:
-			otp_start_addr = 0x1000;
-			otp_interval = 0x1000;
-			otp_block_size = 1024;
 			otp_block_count = 3;
 			break;
 		default:

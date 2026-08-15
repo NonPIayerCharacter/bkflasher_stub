@@ -58,6 +58,7 @@ SECTIONS
 	FLASH_SetSpiMode = 0x20d65;
 	FLASH_RxCmd = 0x20ee9;
 	FLASH_RxData = 0x20f8d;
+	FLASH_TxCmd = 0x210b5;
 	FLASH_TxData = 0x21131;
 	FLASH_SetStatus = 0x2127d;
 	FLASH_Erase = 0x212a9;
