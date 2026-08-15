@@ -14,6 +14,8 @@ __attribute__((section(".dram1")))
 #endif
 mz_uint16 m_next[TDEFL_LZ_DICT_SIZE];
 __attribute__((section(".dram2")))
+#elif PLATFORM_OPL1000A2
+__attribute__((section(".dram")))
 #endif
 static tdefl_compressor deflator;
 #endif
@@ -32,6 +34,7 @@ static mz_bool deflate_output(const void* buffer, int len, void* user)
 		output->ctx, (const uint8_t*)buffer, (uint32_t)len);
 }
 
+#ifndef PLATFORM_NO_XIP
 int stub_miniz_deflate_raw(const volatile uint8_t* src, uint32_t len, uint8_t level,
 	miniz_put_buffer_fn put_buffer, void* put_ctx)
 {
@@ -46,6 +49,71 @@ int stub_miniz_deflate_raw(const volatile uint8_t* src, uint32_t len, uint8_t le
 	return tdefl_compress_buffer(&deflator, (const void*)(uintptr_t)src, len,
 		TDEFL_FINISH) == TDEFL_STATUS_DONE;
 }
+#else
+#define OUT_SIZE (BUF_SIZE / 2)
+int stub_miniz_deflate_raw(const volatile uint8_t* src, uint32_t len, uint8_t level,
+	miniz_put_buffer_fn put_buffer, void* put_ctx)
+{
+	if(!put_buffer) return 0;
+	if(level < 1U || level > 10U) level = 5U;
+
+	int flags = (int)tdefl_create_comp_flags_from_zip_params(level, -15, MZ_DEFAULT_STRATEGY);
+
+	if(tdefl_init(&deflator, NULL, NULL, flags) != TDEFL_STATUS_OKAY) return 0;
+
+	uint32_t flash_addr = (uint32_t)(uintptr_t)src;
+	uint32_t remaining = len;
+	uint8_t* out_buf = ((uint8_t*)&cmd_buf) + OUT_SIZE;
+
+	while(remaining)
+	{
+		uint32_t input_len = remaining;
+
+		if(input_len > OUT_SIZE)
+			input_len = OUT_SIZE;
+
+		hal_flash_read(cmd_buf, flash_addr, input_len);
+		flash_addr += input_len;
+		remaining -= input_len;
+
+		uint32_t input_pos = 0U;
+
+		while(input_pos < input_len)
+		{
+			size_t input_bytes = input_len - input_pos;
+			size_t output_bytes = OUT_SIZE;
+			tdefl_flush flush = remaining ? TDEFL_NO_FLUSH : TDEFL_FINISH;
+			tdefl_status status = tdefl_compress(&deflator, cmd_buf + input_pos, &input_bytes, out_buf, &output_bytes, flush);
+
+			if(output_bytes && !put_buffer(put_ctx, out_buf, (uint32_t)output_bytes))
+			{
+				return 0;
+			}
+
+			input_pos += (uint32_t)input_bytes;
+
+			if(status == TDEFL_STATUS_DONE)
+			{
+				return remaining == 0U && input_pos == input_len;
+			}
+
+			if(status != TDEFL_STATUS_OKAY) return 0;
+			if(!input_bytes && !output_bytes) return 0;
+		}
+	}
+
+	if(len == 0U)
+	{
+		size_t input_bytes = 0U;
+		size_t output_bytes = OUT_SIZE;
+		tdefl_status status = tdefl_compress(&deflator, NULL, &input_bytes, out_buf, &output_bytes, TDEFL_FINISH);
+		if(output_bytes && !put_buffer(put_ctx, out_buf, (uint32_t)output_bytes)) return 0;
+		return status == TDEFL_STATUS_DONE;
+	}
+
+	return 0;
+}
+#endif
 #endif
 
 #ifndef NO_MINIZ_DECOMPRESSION

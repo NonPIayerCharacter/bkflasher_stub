@@ -142,6 +142,7 @@ int crc32_memory(uint32_t addr, uint32_t len, uint32_t* result)
 
 #else
 
+__attribute__((weak))
 void crc32_init_table() { }
 
 __attribute__((weak))
@@ -359,3 +360,9 @@ int read_otp(void)
 }
 
 #endif
+
+__attribute__((weak))
+void hal_flash_read(void* dest, uint32_t off, size_t len)
+{
+	memcpy(dest, (void*)FLASH_BASE + off, len);
+}

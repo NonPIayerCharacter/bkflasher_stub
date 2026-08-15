@@ -29,6 +29,8 @@
 #include "LN8825/ln8825_hal.h"
 #elif PLATFORM_TR6260
 #include "TR6260/tr6260_hal.h"
+#elif PLATFORM_OPL1000A2
+#include "OPL1000A2/opl1000a2_hal.h"
 #endif
 
 #ifndef REG32
@@ -181,6 +183,8 @@ int read_efuse(void);
 void get_chip_data(void);
 
 int read_otp(void);
+
+void hal_flash_read(void* dest, uint32_t off, size_t len);
 
 static inline uint32_t load_le32(const uint8_t* p)
 {

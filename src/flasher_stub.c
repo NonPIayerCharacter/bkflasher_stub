@@ -126,7 +126,6 @@ static void xmodem_send_memory(uint32_t addr, uint32_t len)
 	if(!receiver_ready) { uart_putc(CAN); uart_putc(CAN); return; }
 
 	uint32_t off = 0U;
-	int use_bulk_copy = 1;//w800_range_is_bulk_memory(addr, len);
 	while(off < len)
 	{
 		WATCHDOG_REFRESH();
@@ -135,15 +134,11 @@ static void xmodem_send_memory(uint32_t addr, uint32_t len)
 		packet[0] = use_1k ? STX : SOH;
 		packet[1] = block;
 		packet[2] = (uint8_t)~block;
-		if(use_bulk_copy)
-		{
-			memcpy(&packet[3], (const void*)(uintptr_t)(addr + off), chunk);
-		}
-		else
-		{
-			const volatile uint8_t* src = (const volatile uint8_t*)(uintptr_t)(addr + off);
-			for(uint32_t i = 0; i < chunk; i++) packet[3 + i] = src[i];
-		}
+#ifdef PLATFORM_NO_XIP
+		hal_flash_read(&packet[3], addr + off, chunk);
+#else
+		memcpy(&packet[3], (const void*)(uintptr_t)(addr + off), chunk);
+#endif
 		memset(&packet[3 + chunk], 0xFF, block_size - chunk);
 		uint32_t pkt_len = 3U + block_size;
 		if(use_crc)
