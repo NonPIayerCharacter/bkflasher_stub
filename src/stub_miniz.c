@@ -72,7 +72,7 @@ int stub_miniz_deflate_raw(const volatile uint8_t* src, uint32_t len, uint8_t le
 		if(input_len > OUT_SIZE)
 			input_len = OUT_SIZE;
 
-		hal_flash_read(cmd_buf, flash_addr, input_len);
+		stub_flash_read(cmd_buf, flash_addr, input_len);
 		flash_addr += input_len;
 		remaining -= input_len;
 

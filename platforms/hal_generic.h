@@ -184,7 +184,7 @@ void get_chip_data(void);
 
 int read_otp(void);
 
-void hal_flash_read(void* dest, uint32_t off, size_t len);
+void stub_flash_read(void* dest, uint32_t off, size_t len);
 
 static inline uint32_t load_le32(const uint8_t* p)
 {

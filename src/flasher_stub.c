@@ -135,7 +135,7 @@ static void xmodem_send_memory(uint32_t addr, uint32_t len)
 		packet[1] = block;
 		packet[2] = (uint8_t)~block;
 #ifdef PLATFORM_NO_XIP
-		hal_flash_read(&packet[3], addr + off, chunk);
+		stub_flash_read(&packet[3], addr + off, chunk);
 #else
 		memcpy(&packet[3], (const void*)(uintptr_t)(addr + off), chunk);
 #endif

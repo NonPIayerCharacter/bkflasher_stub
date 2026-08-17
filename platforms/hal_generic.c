@@ -362,7 +362,7 @@ int read_otp(void)
 #endif
 
 __attribute__((weak))
-void hal_flash_read(void* dest, uint32_t off, size_t len)
+void stub_flash_read(void* dest, uint32_t off, size_t len)
 {
 	memcpy(dest, (void*)FLASH_BASE + off, len);
 }

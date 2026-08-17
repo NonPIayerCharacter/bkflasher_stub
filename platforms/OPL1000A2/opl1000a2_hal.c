@@ -62,7 +62,7 @@ int flash_erase_chip()
 	return 1;
 }
 
-void hal_flash_read(void* dest, uint32_t off, size_t len)
+void stub_flash_read(void* dest, uint32_t off, size_t len)
 {
 	if(off < FLASH_BASE) memcpy(dest, (const void*)(off), len);
 	else Hal_Flash_AddrRead_Internal(0, off - FLASH_BASE, 0, len, dest);
@@ -75,7 +75,7 @@ int crc32_memory(uint32_t addr, uint32_t len, uint32_t* result)
 	{
 		uint32_t chunk = len > BUF_SIZE ? BUF_SIZE : len;
 		uint32_t remaining = chunk;
-		hal_flash_read(cmd_buf, addr, chunk);
+		stub_flash_read(cmd_buf, addr, chunk);
 		const uint8_t* p = cmd_buf;
 		while(remaining >= 4)
 		{
@@ -103,7 +103,7 @@ int sha256_memory_hardware(uint32_t addr, uint32_t len)
 	while(remaining > 0)
 	{
 		uint32_t chunk = remaining > BUF_SIZE ? BUF_SIZE : remaining;
-		hal_flash_read(cmd_buf, addr, chunk);
+		stub_flash_read(cmd_buf, addr, chunk);
 		tc_sha256_update(&ctx, cmd_buf, chunk);
 		addr += chunk;
 		remaining -= chunk;
