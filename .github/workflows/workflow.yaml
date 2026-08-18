@@ -1,0 +1,46 @@
+name: Build stubs
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build_all:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Source checkout
+        uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.10'
+          architecture: 'x64'
+
+      - name: Install arm-none-eabi-gcc
+        uses: carlosperate/arm-none-eabi-gcc-action@v1
+        with:
+          release: latest
+          path-env-var: ARM_NONE_EABI_GCC_PATH
+
+      - name: Cache toolchain
+        id: cache-toolchain
+        uses: actions/cache@v5
+        with:
+          path: ~/riscv
+          key: riscv-sdk
+
+      - name: Get toolchain
+        if: steps.cache-toolchain.outputs.cache-hit != 'true'
+        run: |
+          cd ~/ && { wget https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/2026.07.15/riscv64-elf-ubuntu-24.04-gcc.tar.xz ; xz -d < riscv64-elf-ubuntu-24.04-gcc.tar.xz | tar xvf - > /dev/null; cd -;}
+
+      - name: Run build script
+        run: |
+          ./build_all.sh
+
+      - name: Save build assets
+        uses: actions/upload-artifact@v6
+        with:
+          name: Stubs-all_v${{ github.run_number }}
+          path: build/all

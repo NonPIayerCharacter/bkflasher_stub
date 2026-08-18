@@ -1,7 +1,7 @@
 CROSS_COMPILE ?= arm-none-eabi-
 
-CFLAGS := -mcpu=cortex-m4 -mthumb -flto -Os -std=gnu99 -mthumb -mlittle-endian -fno-strict-aliasing -DLN882H #-DPLATFORM_PROVIDES_LIBC -nostdlib -nostartfiles -ffreestanding
-LDFLAGS := -mcpu=cortex-m4 -mthumb -flto -Wl,--gc-sections -Wl,-Tplatforms/$(PLATFORM)/stub.ld -Wl,-Map=$(BUILD_DIR)/$(PLATFORM)_stub.map -Wl,--cref -Wl,--entry=Reset_Handler -nostdlib -nostartfiles -ffreestanding
+CFLAGS := -mcpu=cortex-m4 -mthumb -flto -Os -std=gnu2x -mthumb -mlittle-endian -fno-strict-aliasing -DLN882H #-DPLATFORM_PROVIDES_LIBC -nostdlib -nostartfiles -ffreestanding
+LDFLAGS := -mcpu=cortex-m4 -mthumb -flto -Wl,--gc-sections -Wl,-Tplatforms/$(PLATFORM)/stub.ld -Wl,-Map=$(BUILD_DIR)/$(PLATFORM)_stub.map -Wl,--cref -nostdlib -nostartfiles -ffreestanding
 
 CFLAGS += -Ithird_party/ln882h
 CFLAGS += -Ithird_party/ln882h/CMSIS_5.3.0

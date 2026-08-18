@@ -8,3 +8,4 @@ __pycache__/
 *.pyc
 
 platforms/ECR6600/nds32le-elf
+platforms/W800/csky

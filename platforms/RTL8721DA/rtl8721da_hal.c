@@ -437,7 +437,9 @@ __attribute__((used)) void flasher_stub(void)
 	__asm volatile ("cpsid i" : : : "memory");
 	extern uint8_t __StackTop[];
 	__asm volatile ("msr msp, %0\n" :: "r" (__StackTop));
+#if !defined(NO_MINIZ_COMPRESSION) && !defined(NO_MINIZ_DECOMPRESSION)
 	BOOT_SOC_ClkSet();
+#endif
 	memset((void*)__image1_bss_start__, 0, (__image1_bss_end__ - __image1_bss_start__));
 
 	RCC_PeriphClockCmd(APBPeriph_SHA, APBPeriph_SHA_CLOCK, 1);
