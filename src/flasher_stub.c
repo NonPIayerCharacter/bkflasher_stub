@@ -758,6 +758,7 @@ static void handle_obk_frame(void)
 			memset(cmd_buf, 0, 32);
 			get_chip_data();
 			obk_data_reply(type, cmd_buf, 32, OBK_STATUS_SUCCESS);
+			break;
 		}
 #if (PLATFORM_RTL8721DA || PLATFORM_RTL8720E) && !defined(DISABLE_KV)
 		case OBK_CMD_KV_GET:
@@ -774,6 +775,7 @@ static void handle_obk_frame(void)
 			}
 			rt_kv_get(kvname, &cmd_buf, kvsize);
 			obk_data_reply(type, cmd_buf, kvsize, OBK_STATUS_SUCCESS);
+			break;
 		}
 		case OBK_CMD_KV_SET:
 		{
@@ -785,6 +787,7 @@ static void handle_obk_frame(void)
 			uint16_t datasize = load_le16(cmd_buf + 1);
 			rt_kv_set(kvname, cmd_buf + 3 + namelen, datasize);
 			obk_ack(type, OBK_STATUS_SUCCESS);
+			break;
 		}
 #endif
 		default:

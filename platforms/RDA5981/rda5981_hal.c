@@ -255,7 +255,14 @@ int crc32_memory(uint32_t addr, uint32_t len, uint32_t* result)
 	RDA_DMACFG->crc_out_xorval = 0xFFFFFFFF;
 
 	if(chunks == 0)
-		goto tail;
+	{
+		if(tail == 0) return 0;
+		memcpy(buf[0], src, tail);
+		rda_crc_start((uint32_t)buf[0], tail >> 2);
+		dma_wait();
+		if(result) *result = RDA_DMACFG->crc_out_val;
+		return 1;
+	}
 
 	memcpy(buf[0], src, CRC_CHUNK_SIZE);
 	src += CRC_CHUNK_SIZE;
@@ -272,7 +279,6 @@ int crc32_memory(uint32_t addr, uint32_t len, uint32_t* result)
 		cur ^= 1;
 	}
 
-tail:
 	if(tail)
 	{
 		memcpy(buf[cur ^ 1], src, tail);

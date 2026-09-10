@@ -76,7 +76,7 @@ int flash_erase_chip()
 	flash_cache_disable();
 	hal_flash_chip_erase();
 	flash_cache_init(0);
-	return 0;
+	return 1;
 }
 
 void flash_init(void)
