@@ -6,10 +6,10 @@ for dir in platforms/*/; do
     platform=${dir%*/}
     platform=${platform##*/}
     make prebuild PLATFORM="$platform"
-    make PLATFORM="$platform" -j$(nproc)
+    make PLATFORM="$platform" -j$(nproc) || exit 1
     cp build/$platform/${platform}_Stub.bin build/all/${platform}_Stub.bin
     rm -rf build/${platform}
-    make PLATFORM="$platform" -j$(nproc) CLIFLAGS="-DNO_MINIZ_COMPRESSION -DNO_MINIZ_DECOMPRESSION -DDISABLE_KV"
+    make PLATFORM="$platform" -j$(nproc) CLIFLAGS="-DNO_MINIZ_COMPRESSION -DNO_MINIZ_DECOMPRESSION -DDISABLE_KV" || exit 1
     cp build/$platform/${platform}_Stub.bin build/all/minimal/${platform}_Stub.bin
     rm -rf build/${platform}
 done

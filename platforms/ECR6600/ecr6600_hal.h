@@ -6,8 +6,6 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-#undef BUF_SIZE
-#define BUF_SIZE 0x1000
 #define PLATFORM_SUPPORTS_OTP
 
 #define SOC_PD_SMU_BASE					(0x00202000)
@@ -33,6 +31,7 @@
 #define SOC_PD_PIN_MUX0					(SOC_PD_SMU_BASE + 0x30)
 #define SOC_PD_PIN_MUX1					(SOC_PD_SMU_BASE + 0x34)
 #define SOC_PD_UART_CLK_SEL				(SOC_PD_SMU_BASE + 0x50)
+#define SOC_PD_CLK_DIV_EN				(SOC_PD_SMU_BASE + 0x74)
 #define SOC_PD_APB_ENCRYPT_EN			(SOC_PD_SMU_BASE + 0x78)
 #define UART_CLK_SEL_40M				(0x0)
 #define UART_CLK_SEL_160M_DIV2			(0x1)

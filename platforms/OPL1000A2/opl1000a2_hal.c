@@ -113,9 +113,10 @@ int sha256_memory_hardware(uint32_t addr, uint32_t len)
 	return 1;
 }
 
-void get_chip_data(void)
+uint8_t get_chip_data(void)
 {
 	WRITE_REG32(cmd_buf, 0xAA5D6AC8); // OPL1000A2
+	return 4;
 }
 
 int read_efuse(void)

@@ -248,47 +248,82 @@ int crc32_memory(uint32_t addr, uint32_t len, uint32_t* result)
 	uint32_t* buf[2] = { (uint32_t*)cmd_buf, (uint32_t*)(cmd_buf + CRC_CHUNK_SIZE) };
 
 	uint32_t cur = 0;
+	bool dma_active = false;
 
 	RDA_DMACFG->dma_func_ctrl = 0x000F0003;
 	RDA_DMACFG->crc_gen = 0x04C11DB7;
 	RDA_DMACFG->crc_init_val = 0xFFFFFFFF;
-	RDA_DMACFG->crc_out_xorval = 0xFFFFFFFF;
+	RDA_DMACFG->crc_out_xorval = 0;
 
-	if(chunks == 0)
+	if(chunks)
 	{
-		if(tail == 0) return 0;
-		memcpy(buf[0], src, tail);
-		rda_crc_start((uint32_t)buf[0], tail >> 2);
-		dma_wait();
-		if(result) *result = RDA_DMACFG->crc_out_val;
-		return 1;
-	}
-
-	memcpy(buf[0], src, CRC_CHUNK_SIZE);
-	src += CRC_CHUNK_SIZE;
-	rda_crc_start((uint32_t)buf[0], CRC_CHUNK_WORDS);
-	cur = 1;
-
-	while(--chunks)
-	{
-		memcpy(buf[cur], src, CRC_CHUNK_SIZE);
+		memcpy(buf[0], src, CRC_CHUNK_SIZE);
 		src += CRC_CHUNK_SIZE;
-		dma_wait();
-		rda_crc_start((uint32_t)buf[cur], CRC_CHUNK_WORDS);
 
-		cur ^= 1;
+		rda_crc_start((uint32_t)buf[0], CRC_CHUNK_WORDS);
+		dma_active = true;
+		cur = 1;
+
+		while(--chunks)
+		{
+			memcpy(buf[cur], src, CRC_CHUNK_SIZE);
+			src += CRC_CHUNK_SIZE;
+
+			dma_wait();
+			rda_crc_start((uint32_t)buf[cur], CRC_CHUNK_WORDS);
+
+			cur ^= 1;
+		}
 	}
 
 	if(tail)
 	{
-		memcpy(buf[cur ^ 1], src, tail);
-		dma_wait();
-		rda_crc_start((uint32_t)buf[cur ^ 1], tail >> 2);
-		dma_wait();
-	}
-	else dma_wait();
+		uint32_t tail_words = tail >> 2;
+		uint32_t tail_bytes = tail & 3;
 
-	if(result) *result = RDA_DMACFG->crc_out_val;
+		memcpy(buf[cur ^ 1], src, tail);
+
+		if(dma_active) dma_wait();
+
+		if(tail_words)
+		{
+			rda_crc_start((uint32_t)buf[cur ^ 1], tail_words);
+			dma_active = true;
+		}
+		else
+		{
+			dma_active = false;
+		}
+
+		if(tail_bytes)
+		{
+			uint32_t crc;
+
+			if(dma_active)
+			{
+				dma_wait();
+				crc = RDA_DMACFG->crc_out_val;
+			}
+			else
+			{
+				crc = 0xFFFFFFFFU;
+			}
+
+			uint8_t* p = (uint8_t*)buf[cur ^ 1] + (tail_words << 2);
+			for(uint32_t i = 0; i < tail_bytes; ++i) crc = crc32_update_wire(crc, p[i]);
+			if(result) *result = crc ^ 0xFFFFFFFFU;
+		}
+		else
+		{
+			dma_wait();
+			if(result) *result = RDA_DMACFG->crc_out_val ^ 0xFFFFFFFFU;
+		}
+	}
+	else
+	{
+		dma_wait();
+		if(result) *result = RDA_DMACFG->crc_out_val ^ 0xFFFFFFFFU;
+	}
 	return 1;
 }
 
@@ -382,10 +417,11 @@ void hal_spi_cmd(uint8_t cmd)
 	spi_wip_reset();
 }
 
-void get_chip_data(void)
+uint8_t get_chip_data(void)
 {
 	WRITE_REG32(cmd_buf, 0x7272742E); // RDA5981
 	WRITE_REG32(cmd_buf + 4, RDA_GPIO->REVID);
+	return 8;
 }
 
 extern int main(void);

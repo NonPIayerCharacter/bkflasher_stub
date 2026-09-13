@@ -5,8 +5,6 @@
 #include <stdbool.h>
 #include <nds32_intrinsic.h>
 
-#undef BUF_SIZE
-#define BUF_SIZE 0x1000
 #define PLATFORM_SUPPORTS_OTP
 
 #define UART0_BASE						(0x00602000)

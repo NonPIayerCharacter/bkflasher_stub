@@ -458,9 +458,10 @@ int read_efuse(void)
 	return 0x400;
 }
 
-void get_chip_data(void)
+uint8_t get_chip_data(void)
 {
 	WRITE_REG32(cmd_buf, 0xDF93AD2C); // RTL8720E
+	return 4;
 }
 
 __attribute__((optimize("O1")))

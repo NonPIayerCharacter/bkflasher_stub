@@ -293,9 +293,10 @@ void hal_spi_cmd(uint8_t cmd)
 	FLASH_TxCmd(cmd, 0, 0);
 }
 
-void get_chip_data(void)
+uint8_t get_chip_data(void)
 {
 	WRITE_REG32(cmd_buf, 0xF9073AB3); // RTL8721DA
+	return 4;
 }
 
 void PLL_Cmd(uint32_t status)

@@ -110,9 +110,10 @@ int read_efuse(void)
 	return 64;
 }
 
-void get_chip_data(void)
+uint8_t get_chip_data(void)
 {
 	WRITE_REG32(cmd_buf, 0x8ABF79A8); // LN8825
+	return 4;
 }
 
 int read_otp(void)

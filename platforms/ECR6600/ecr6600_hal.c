@@ -142,6 +142,13 @@ void uart_set_baud(uint32_t baud)
 	uint32_t bestOsc = 0;
 	uint32_t bestDiv = 0;
 
+	if(baud == 115200)
+	{
+		bestOsc = 8;
+		bestDiv = 87;
+		goto done;
+	}
+
 	for(uint32_t osc = 32; osc > 0; osc--)
 	{
 		uint32_t div = uclk / (osc * baud);
@@ -393,9 +400,10 @@ void boot_soc_update_cpu_clk(void)
 	udelay(1);
 }
 
-void get_chip_data(void)
+uint8_t get_chip_data(void)
 {
 	WRITE_REG32(cmd_buf, 0x4C7959C9); // ECR6600
+	return 4;
 }
 
 uint32_t hal_read_otp(uint32_t otp_block_size, uint32_t otp_block_count, uint32_t otp_interval, uint32_t otp_start_addr, uint32_t otp_mode)
@@ -424,6 +432,17 @@ uint32_t hal_read_otp(uint32_t otp_block_size, uint32_t otp_block_count, uint32_
 void hal_spi_cmd(uint8_t cmd)
 {
 	spi_cmd_none(cmd);
+}
+
+void boot_from_flash()
+{
+#define CHIP_SMU_PD_CLK_UART_TRNG_80M_EN		(1<<2)
+#define CHIP_SMU_PD_CLK_DIV3_EN					(1<<1)
+#define CHIP_SMU_PD_CLK_DIV2_EN					(1<<0)
+	extern int flash_boot(int uart_boot_check);
+	WRITE_REG32(SOC_PD_CLK_DIV_EN, (READ_REG32(SOC_PD_CLK_DIV_EN) | CHIP_SMU_PD_CLK_DIV2_EN | CHIP_SMU_PD_CLK_DIV3_EN) & ~CHIP_SMU_PD_CLK_UART_TRNG_80M_EN);
+	WRITE_REG32(SOC_PD_CLK_MUX_BASE, (READ_REG32(SOC_PD_CLK_MUX_BASE) & 0xFFFFFFF0) | CPU_CLK_FREQ_DIV0 | CPU_CLK_SEC_40M_26M);
+	flash_boot(0);
 }
 
 extern int main(void);

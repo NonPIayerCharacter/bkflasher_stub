@@ -53,6 +53,7 @@ SECTIONS
 {
     memcpy = 0x00000250;
     memset = 0x00000400;
+    flash_boot = 0x0000772c;
     sha256 = 0x000087fa;
     udelay = 0x000088bc;
     spi_bus_ready = 0x000088ea;

@@ -225,12 +225,13 @@ static inline uint32_t SYSCFG_CUTVersion(void)
 	else return cuttmp;
 }
 
-void get_chip_data(void)
+uint8_t get_chip_data(void)
 {
 	WRITE_REG32(cmd_buf, 0xA8949DBA); // RTL8720D
 	WRITE_REG32(cmd_buf + 4, SYSCFG_GetChipInfo());
 	WRITE_REG32(cmd_buf + 8, SYSCFG_CUTVersion());
 	WRITE_REG32(cmd_buf + 12, SYSCFG_ROMINFO_Get());
+	return 16;
 }
 
 extern int main(void);

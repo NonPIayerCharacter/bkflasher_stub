@@ -2,6 +2,7 @@
 
 hal_uart_adapter_t log_uart;
 hal_spic_adaptor_t hal_spic_adaptor;
+static uint32_t efuse_chip_id = 0;
 
 void uart_putc(uint8_t b)
 {
@@ -288,13 +289,13 @@ int read_factory_mac(uint8_t mac[6])
 	return 1;
 }
 
-void get_chip_data(void)
+uint8_t get_chip_data(void)
 {
 	WRITE_REG32(cmd_buf, 0x34B6B640); // RTL8710C
-	hal_efuse_stubs.hal_efuse_read(EFUSE_CTRL_SETTING, 0x1F8, cmd_buf + 4, LDO_OUT_DEFAULT_VOLT);
+	WRITE_REG32(cmd_buf + 4, efuse_chip_id);
 	WRITE_REG32(cmd_buf + 8, READ_REG32(0x400001F0));
+	return 12;
 }
-
 
 uint32_t hal_read_otp(uint32_t otp_block_size, uint32_t otp_block_count, uint32_t otp_interval, uint32_t otp_start_addr, uint32_t otp_mode)
 {
@@ -353,5 +354,6 @@ void flasher_main(void)
 	//WRITE_REG32(0x40000250, READ_REG32(0x40000250) & 0xfffcffff | 0 << 0x10);
 	memset(__bss_start__, 0, (__bss_end__ - __bss_start__));
 	hal_crypto_engine_init();
+	hal_efuse_stubs.hal_efuse_read(EFUSE_CTRL_SETTING, 0x1F8, (uint8_t*)&efuse_chip_id, LDO_OUT_DEFAULT_VOLT);
 	main();
 }

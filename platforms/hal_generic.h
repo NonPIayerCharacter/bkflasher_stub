@@ -44,6 +44,7 @@
 #define BIT(x)					(1 << x)
 #endif
 #define MAX( a , b ) ( ( (a) > (b) ) ? (a) : (b) )
+#define MIN( a , b ) ( ( (a) > (b) ) ? (b) : (a) )
 
 /* Common OBK/Easy-Flasher custom-stub protocol.
  * These values are shared with the existing OBK custom stubs.
@@ -53,11 +54,17 @@
 #define OBK_STUB_ACK_MAGIC         0x5AU
 
 #define OBK_CMD_SYNC               0x00U
+#define OBK_CMD_RAM_DOWNLOAD       0x01U
+#define OBK_CMD_FLASH_DOWNLOAD     0x02U
+#define OBK_CMD_FLASH_UPLOAD       0x03U
 #define OBK_CMD_FLASH_ERASE        0x04U
 #define OBK_CMD_FLASH_CHIP_ERASE   0x05U
+#define OBK_CMD_RUN                0x06U
 #define OBK_CMD_BAUD_CHANGE        0x07U
 #define OBK_CMD_FLASH_SHA256       0x09U
-#define OBK_CMD_GET_CHIP_PRODUCT   0x20U // returns 32 bytes, first 4 - platform name CRC32
+#define OBK_CMD_GET_CHIP_PRODUCT   0x20U
+#define OBK_CMD_READ_REG           0x21U
+#define OBK_CMD_WRITE_REG          0x22U
 #define OBK_CMD_FLASH_CRC32        0x8FU
 #define OBK_CMD_FLASH_ID           0x90U
 #define OBK_CMD_FLASH_XMODEM_DL    0x91U  /* host -> target flash write */
@@ -70,6 +77,7 @@
 #define OBK_CMD_RAW_XMODEM_UL      0x98U  /* target -> host absolute memory read */
 #define OBK_CMD_READ_EFUSE         0x99U
 #define OBK_CMD_READ_OTP           0x9AU
+#define OBK_CMD_JUMP_RAM           0x9FU
 
 #define OBK_STATUS_SUCCESS         0x00U
 #define OBK_STATUS_ERROR           0x01U
@@ -180,11 +188,13 @@ uint16_t crc16_xmodem(const uint8_t* data, uint32_t len);
 
 int read_efuse(void);
 
-void get_chip_data(void);
+uint8_t get_chip_data(void);
 
 int read_otp(void);
 
 void stub_flash_read(void* dest, uint32_t off, size_t len);
+
+void boot_from_flash();
 
 static inline uint32_t load_le32(const uint8_t* p)
 {
@@ -215,6 +225,11 @@ static inline int range_does_not_wrap(uint32_t addr, uint32_t len)
 static inline int range_is_within(uint32_t addr, uint32_t len, uint32_t base, uint32_t size)
 {
 	return len && addr >= base && addr - base < size && len <= size - (addr - base);
+}
+
+static inline int8_t uart_getc_inf(uint8_t* out)
+{
+	while(!uart_getc_timeout(out, 0xFFFFFFFF));
 }
 
 #endif

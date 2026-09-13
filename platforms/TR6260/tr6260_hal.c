@@ -331,9 +331,10 @@ void hal_spi_cmd(uint8_t cmd)
 	spi_cmd_none(cmd);
 }
 
-void get_chip_data(void)
+uint8_t get_chip_data(void)
 {
 	WRITE_REG32(cmd_buf, 0x396440B3);
+	return 4;
 }
 
 extern int main(void);

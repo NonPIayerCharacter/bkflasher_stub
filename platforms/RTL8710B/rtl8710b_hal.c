@@ -293,10 +293,11 @@ void hal_spi_cmd(uint8_t cmd)
 	FLASH_TxCmd(cmd, 0, 0);
 }
 
-void get_chip_data(void)
+uint8_t get_chip_data(void)
 {
 	WRITE_REG32(cmd_buf, 0x43B186D6); // RTL8710B
 	// todo: get chip id
+	return 4;
 }
 
 extern int main(void);

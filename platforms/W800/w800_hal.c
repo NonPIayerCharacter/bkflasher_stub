@@ -206,10 +206,11 @@ int read_factory_mac(uint8_t mac[6])
 	return w800_read_factory_mac_at(0U, mac);
 }
 
-void get_chip_data(void)
+uint8_t get_chip_data(void)
 {
 	WRITE_REG32(cmd_buf, 0xDC7E93D2); // W80x
 	// todo: get chip id (w800, 801, 806 etc)
+	return 4;
 }
 
 uint32_t hal_read_otp(uint32_t otp_block_size, uint32_t otp_block_count, uint32_t otp_interval, uint32_t otp_start_addr, uint32_t otp_mode)
