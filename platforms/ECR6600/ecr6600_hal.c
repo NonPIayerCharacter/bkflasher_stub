@@ -203,6 +203,7 @@ void flash_program_page(uint32_t off, const uint8_t* data)
 	for(uint32_t i = 0; i < words; i++)
 	{
 		while(READ_REG32(SOC_SPI0_BASE + 0x34) & SPI_STATUS_TXFULL);
+		WRITE_REG32(SOC_SPI0_BASE + 0x28, off + i * 4);
 		WRITE_REG32(SOC_SPI0_BASE + 0x2c, ((uint32_t*)data)[i]);
 	}
 
