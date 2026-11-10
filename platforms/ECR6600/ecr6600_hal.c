@@ -185,6 +185,8 @@ void flash_program_page(uint32_t off, const uint8_t* data)
 	if(!spi_bus_ready(SOC_SPI0_BASE)) return;
 	if(spi_fifo_reset(SOC_SPI0_BASE)) return;
 
+	WRITE_REG32(SOC_SPI0_BASE + 0x28, off);
+
 	if(spi_mode == SPI_MODE_QUAD)
 	{
 		WRITE_REG32(SOC_SPI0_BASE + 0x20, SPI_TRANSCTRL_CMD_EN | SPI_TRANSCTRL_ADDR_EN | SPI_TRANSCTRL_TRAMODE_WO | SPI_TRANSCTRL_DUALQUAD_QUAD | SPI_TRANSCTRL_WCNT(FLASH_PAGE_SIZE - 1));
@@ -201,7 +203,6 @@ void flash_program_page(uint32_t off, const uint8_t* data)
 	for(uint32_t i = 0; i < words; i++)
 	{
 		while(READ_REG32(SOC_SPI0_BASE + 0x34) & SPI_STATUS_TXFULL);
-		WRITE_REG32(SOC_SPI0_BASE + 0x28, off + i * 4);
 		WRITE_REG32(SOC_SPI0_BASE + 0x2c, ((uint32_t*)data)[i]);
 	}
 
@@ -284,7 +285,7 @@ void flash_init(void)
 				flash_write_status(SPIFLASH_CMD_WRSR, SPIFLASH_STATUS_QE, 2);
 				break;
 			case 0x1560eb:
-				flash_write_status(SPIFLASH_CMD_WRSR, 0x0218, 2);
+				flash_write_status(SPIFLASH_CMD_WRSR, SPIFLASH_STATUS_QE, 2);
 				break;
 			case 0x156085:
 				flash_write_status(SPIFLASH_CMD_WRSR, SPIFLASH_STATUS_QE, 2);
