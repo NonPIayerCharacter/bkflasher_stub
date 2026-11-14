@@ -64,8 +64,7 @@ int flash_erase_chip()
 
 void stub_flash_read(void* dest, uint32_t off, size_t len)
 {
-	if(off < FLASH_BASE) memcpy(dest, (const void*)(off), len);
-	else Hal_Flash_AddrRead_Internal(0, off - FLASH_BASE, 0, len, dest);
+	Hal_Flash_AddrRead_Internal(0, off, 0, len, dest);
 }
 
 int crc32_memory(uint32_t addr, uint32_t len, uint32_t* result)

@@ -32,6 +32,8 @@
 #include "TR6260/tr6260_hal.h"
 #elif PLATFORM_OPL1000A2
 #include "OPL1000A2/opl1000a2_hal.h"
+#elif PLATFORM_W600
+#include "W600/w600_hal.h"
 #endif
 
 #ifndef REG32
@@ -231,7 +233,7 @@ static inline int range_is_within(uint32_t addr, uint32_t len, uint32_t base, ui
 	return len && addr >= base && addr - base < size && len <= size - (addr - base);
 }
 
-static inline int8_t uart_getc_inf(uint8_t* out)
+static inline void uart_getc_inf(uint8_t* out)
 {
 	while(!uart_getc_timeout(out, 0xFFFFFFFF));
 }

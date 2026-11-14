@@ -79,7 +79,7 @@ static void obk_send_flash_crc32(uint8_t type, uint32_t off, uint32_t len)
 	obk_data_reply(type, payload, sizeof(payload), OBK_STATUS_SUCCESS);
 }
 
-static void xmodem_send_memory(uint32_t addr, uint32_t len)
+static void xmodem_send_memory(uint32_t addr, uint32_t len, bool raw)
 {
 	uint8_t resp;
 	int use_crc = 1;
@@ -110,7 +110,8 @@ static void xmodem_send_memory(uint32_t addr, uint32_t len)
 		packet[0] = use_1k ? STX : SOH;
 		packet[1] = block;
 		packet[2] = (uint8_t)~block;
-		stub_flash_read(&packet[3], addr + off, chunk);
+		if(!raw) stub_flash_read(&packet[3], addr + off, chunk);
+		else memcpy(&packet[3], (void*)(addr + off), chunk);
 		memset(&packet[3 + chunk], 0xFF, block_size - chunk);
 		uint32_t pkt_len = 3U + block_size;
 		if(use_crc)
@@ -664,6 +665,7 @@ static void handle_obk_frame(void)
 			obk_ack(type, OBK_STATUS_SUCCESS);
 			break;
 		}
+#ifndef PLATFORM_W600
 		case OBK_CMD_RAM_DOWNLOAD:
 		{
 			if(data_len != 8U) { obk_ack(type, OBK_STATUS_LEN_ERROR); return; }
@@ -706,6 +708,7 @@ static void handle_obk_frame(void)
 			} while(len);
 			break;
 		}
+#endif
 		case OBK_CMD_BAUD_CHANGE:
 		{
 			if(data_len != 4U) { obk_ack(type, OBK_STATUS_LEN_ERROR); return; }
@@ -741,6 +744,7 @@ static void handle_obk_frame(void)
 			obk_send_flash_crc32(type, off, len);
 			break;
 		}
+#ifndef PLATFORM_W600
 		case OBK_CMD_FLASH_SHA256:
 		{
 			if(data_len != 8U) { obk_ack(type, OBK_STATUS_LEN_ERROR); return; }
@@ -790,54 +794,56 @@ static void handle_obk_frame(void)
 			xmodem_receive_flash(off, len);
 			break;
 		}
-		case OBK_CMD_FLASH_XMODEM_UL:
-		{
-			if(data_len < 8U) { obk_ack(type, OBK_STATUS_LEN_ERROR); return; }
-			uint32_t off = load_le32(cmd_buf);
-			uint32_t len = load_le32(cmd_buf + 4);
-			if(off + len > flash_size) { obk_ack(type, OBK_STATUS_ADDR_ERROR); return; }
-			obk_ack(type, OBK_STATUS_SUCCESS);
-			xmodem_send_memory(FLASH_BASE + off, len);
-			break;
-		}
-		case OBK_CMD_FLASH_XMODEM_UL_Z:
-		{
-#ifndef NO_MINIZ_COMPRESSION
-			if(data_len < 8U) { obk_ack(type, OBK_STATUS_LEN_ERROR); return; }
-			uint32_t off = load_le32(cmd_buf);
-			uint32_t len = load_le32(cmd_buf + 4);
-			if(off + len > flash_size) { obk_ack(type, OBK_STATUS_ADDR_ERROR); return; }
-			uint8_t level = data_len >= 9U ? cmd_buf[8] : 5U;
-			obk_ack(type, OBK_STATUS_SUCCESS);
-			xmodem_send_compressed_memory(FLASH_BASE + off, len, level);
-#else
-			obk_ack(type, OBK_STATUS_NOT_SUPPORTED);
 #endif
-			break;
-		}
-		case OBK_CMD_FLASH_XMODEM_DL_Z:
-		{
-#ifndef NO_MINIZ_DECOMPRESSION
-			if(data_len < 8U) { obk_ack(type, OBK_STATUS_LEN_ERROR); return; }
-			uint32_t off = load_le32(cmd_buf);
-			uint32_t len = load_le32(cmd_buf + 4);
-			if(off + len > flash_size) { obk_ack(type, OBK_STATUS_ADDR_ERROR); return; }
-			obk_ack(type, OBK_STATUS_SUCCESS);
-			xmodem_receive_compressed_flash(off, len);
-#else
-			obk_ack(type, OBK_STATUS_NOT_SUPPORTED);
-#endif
-			break;
-		}
-		case OBK_CMD_RAW_XMODEM_UL:
-		{
-			if(data_len < 8U) { obk_ack(type, OBK_STATUS_LEN_ERROR); return; }
-			uint32_t addr = load_le32(cmd_buf);
-			uint32_t len = load_le32(cmd_buf + 4);
-			obk_ack(type, OBK_STATUS_SUCCESS);
-			xmodem_send_memory(addr, len);
-			break;
-		}
+//		case OBK_CMD_FLASH_XMODEM_UL:
+//		{
+//			if(data_len < 8U) { obk_ack(type, OBK_STATUS_LEN_ERROR); return; }
+//			uint32_t off = load_le32(cmd_buf);
+//			uint32_t len = load_le32(cmd_buf + 4);
+//			if(off + len > flash_size) { obk_ack(type, OBK_STATUS_ADDR_ERROR); return; }
+//			obk_ack(type, OBK_STATUS_SUCCESS);
+//			xmodem_send_memory(off, len, false);
+//			break;
+//		}
+//		case OBK_CMD_FLASH_XMODEM_UL_Z:
+//		{
+//#ifndef NO_MINIZ_COMPRESSION
+//			if(data_len < 8U) { obk_ack(type, OBK_STATUS_LEN_ERROR); return; }
+//			uint32_t off = load_le32(cmd_buf);
+//			uint32_t len = load_le32(cmd_buf + 4);
+//			if(off + len > flash_size) { obk_ack(type, OBK_STATUS_ADDR_ERROR); return; }
+//			uint8_t level = data_len >= 9U ? cmd_buf[8] : 5U;
+//			obk_ack(type, OBK_STATUS_SUCCESS);
+//			xmodem_send_compressed_memory(FLASH_BASE + off, len, level);
+//#else
+//			obk_ack(type, OBK_STATUS_NOT_SUPPORTED);
+//#endif
+//			break;
+//		}
+//		case OBK_CMD_FLASH_XMODEM_DL_Z:
+//		{
+//#ifndef NO_MINIZ_DECOMPRESSION
+//			if(data_len < 8U) { obk_ack(type, OBK_STATUS_LEN_ERROR); return; }
+//			uint32_t off = load_le32(cmd_buf);
+//			uint32_t len = load_le32(cmd_buf + 4);
+//			if(off + len > flash_size) { obk_ack(type, OBK_STATUS_ADDR_ERROR); return; }
+//			obk_ack(type, OBK_STATUS_SUCCESS);
+//			xmodem_receive_compressed_flash(off, len);
+//#else
+//			obk_ack(type, OBK_STATUS_NOT_SUPPORTED);
+//#endif
+//			break;
+//		}
+//		case OBK_CMD_RAW_XMODEM_UL:
+//		{
+//			if(data_len < 8U) { obk_ack(type, OBK_STATUS_LEN_ERROR); return; }
+//			uint32_t addr = load_le32(cmd_buf);
+//			uint32_t len = load_le32(cmd_buf + 4);
+//			obk_ack(type, OBK_STATUS_SUCCESS);
+//			xmodem_send_memory(addr, len, true);
+//			break;
+//		}
+#ifndef PLATFORM_W600
 		case OBK_CMD_FLASH_CHIP_ERASE:
 		{
 			if(!flash_size)
@@ -880,12 +886,14 @@ static void handle_obk_frame(void)
 			obk_data_reply(type, cmd_buf, len, OBK_STATUS_SUCCESS);
 			break;
 		}
+#endif
 		case OBK_CMD_GET_CHIP_PRODUCT:
 		{
 			uint8_t len = get_chip_data();
 			obk_data_reply(type, cmd_buf, len, OBK_STATUS_SUCCESS);
 			break;
 		}
+#ifndef PLATFORM_W600
 		case OBK_CMD_READ_REG:
 		{
 			if(data_len < 4U) { obk_ack(type, OBK_STATUS_LEN_ERROR); return; }
@@ -947,6 +955,7 @@ static void handle_obk_frame(void)
 			entry_point();
 			break;
 		}
+#endif
 #if 0
 		case OBK_CMD_AVAILABLE_CMDS:
 		{
@@ -1013,7 +1022,9 @@ int main(void)
 {
 	uart_init();
 	flash_init();
+#ifndef PLATFORM_W600
 	flash_size = flash_size_from_jedec(flash_id);
+#endif
 	crc32_init_table();
 
 	while(1)

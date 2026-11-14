@@ -1,17 +1,10 @@
 CROSS_COMPILE ?= arm-none-eabi-
 
-.DEFAULT_GOAL := all
+CFLAGS := -mcpu=cortex-m3 -mthumb -O1 -flto -ffreestanding -fno-builtin -fdata-sections -ffunction-sections -nostdlib -DNO_MINIZ_COMPRESSION -DNO_MINIZ_DECOMPRESSION -DFASTER_CRC32 -DLIGHT_MEMCPY -DLIGHT_MEMSET
+LDFLAGS := -mcpu=cortex-m3 -mthumb -O1 -flto -ffreestanding -fno-builtin -fdata-sections -ffunction-sections -nostdlib -Wl,--gc-sections
 
-CFLAGS := -mcpu=cortex-m3 -mthumb -Os -ffreestanding -fno-builtin \
-	-fdata-sections -ffunction-sections -Wall -Wextra -Werror -nostdlib
-LDFLAGS := -mcpu=cortex-m3 -mthumb -Os -ffreestanding -fno-builtin \
-	-fdata-sections -ffunction-sections -Wall -Wextra -Werror -nostdlib \
-	-Wl,--gc-sections -Wl,-Tplatforms/W600/loader.ld \
-	-Wl,-Map=$(BUILD_DIR)/$(PLATFORM)_stub.map
-
-# W600 retains its standalone RD32 protocol rather than the shared A5 engine.
-override SRCS_S := platforms/W600/startup.S
-override SRCS_C := platforms/W600/w600_uart_flash_reader.c
+SRCS_S += platforms/W600/startup.S
+SRCS_C += platforms/W600/w600_hal.c
 
 COPY_STUB_OBJ := $(BUILD_DIR)/secboot-copy-stub.o
 COPY_STUB_BIN := $(BUILD_DIR)/secboot-copy-stub.bin
@@ -28,7 +21,7 @@ $(COPY_STUB_OBJ): platforms/W600/secboot_copy_stub.S | $(BUILD_DIR)
 $(COPY_STUB_BIN): $(COPY_STUB_OBJ)
 	@$(OBJCOPY) -O binary -j .text $< $@
 
-$(W600_OBJS): platforms/W600/Makefile platforms/W600/loader.ld
+$(W600_OBJS): platforms/W600/Makefile platforms/W600/stub.ld
 
 .PHONY: prebuild
 prebuild:

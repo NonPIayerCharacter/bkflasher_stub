@@ -1,0 +1,93 @@
+#ifndef W600_HAL_H
+#define W600_HAL_H
+
+#include <stdint.h>
+#include <stdbool.h>
+
+#define PLATFORM_NO_XIP // so that both flashes could be read
+#define FLASH_BASE        0x08000000u
+#undef BUF_SIZE
+#define BUF_SIZE 0x1000
+
+#define UART0_BASE        0x40010800u
+#define UART1_BASE        0x40010A00u
+#define UART0_FIFO_STATUS 0x4001081Cu
+#define UART0_BR_CTRL     0x40010810u
+#define UART0_TX_WINDOW   0x40010820u
+#define UART0_RX_WINDOW   0x40010830u
+#define UART_TX_COUNT     0x0000003Fu
+#define UART_RX_COUNT     0x000003C0u
+#define UART_BAUD_115200  0x000B0015u
+#define UART_BAUD_1500000 0x000A0000u
+
+#define CLOCK_RESET_CONTROL 0x4000070Cu
+
+#define GPIOB_DATA         0x40011200u
+#define GPIOB_DATA_ENABLE  0x40011204u
+#define GPIOB_DIRECTION    0x40011208u
+#define GPIOB_PULL_ENABLE  0x4001120Cu
+#define GPIOB_AF_SELECT    0x40011210u
+#define GPIOA_PULL_ENABLE 0x40010C0Cu
+#define GPIOA_AF_SELECT   0x40010C10u
+#define GPIOA_AF_SELECT_1 0x40010C14u
+#define GPIOA_AF_SELECT_0 0x40010C18u
+#define GPIOA_UART0_RX     (1u << 5)
+#define SECBOOT_SPI_PINS   ((1u << 2) | (1u << 3) | (1u << 9) | (1u << 11))
+
+#define SPI_CHANNEL_CONFIG 0x40010400u
+#define SPI_CONFIG         0x40010404u
+#define SPI_CLOCK_CONFIG   0x40010408u
+#define SPI_INT_MASK       0x40010410u
+#define SPI_INT_STATUS     0x40010414u
+
+#define NVIC_CLEAR_PENDING_0 0xE000E280u
+#define NVIC_CLEAR_PENDING_1 0xE000E284u
+#define WATCHDOG_CONTROL  0x40011008u
+#define WATCHDOG_INT_CLR  0x4001100Cu
+#define WATCHDOG_LOAD     0x40011000u
+#define WATCHDOG_LOCK     0x40011040u
+
+#define FLASH_COMMAND     0x40002000u
+#define FLASH_ADDRESS     0x40002004u
+#define FLASH_DATA_WINDOW 0x40002200u
+#define FLASH_READ_COMMAND 0xEC00C0EBu
+#define FLASH_JEDEC_ID_COMMAND 0x0002C09Fu
+#define FLASH_TRIGGER          0x10000000u
+
+#define FLASH_SIZE        0x00100000u
+#define FLASH_READ_WINDOW 1024u
+#define MAX_READ_LENGTH   16384u
+#define PROTOCOL_VERSION  2u
+#define REQUEST_SIZE      16u
+#define RESPONSE_SIZE     20u
+#define OP_INFO           0u
+#define OP_READ           1u
+#define OP_RETURN_TO_ROM  2u
+#define OP_FLASH_ID       4u
+
+#define STATUS_OK           0u
+#define STATUS_BAD_HEADER   1u
+#define STATUS_BAD_VERSION  2u
+#define STATUS_BAD_OPCODE   3u
+#define STATUS_BAD_RANGE    4u
+#define STATUS_SPI_FAILURE  5u
+#define STATUS_SPI_CLEANUP_FAILED 6u
+
+#define SPI_BASE 0x40010400u
+#define SPI_STATUS (SPI_BASE + 0x18u)
+#define SPI_RX_DATA (SPI_BASE + 0x30u)
+#define SPI_TX_DATA (SPI_BASE + 0x20u)
+#define SPI_BUSY (1u << 12)
+#define SPI_FIFO_COUNTS 0xFFFu
+#define SPI_POLL_LIMIT 100000u
+#define SECONDARY_NO_RESPONSE 0u
+#define SECONDARY_SUPPORTED 1u
+#define SECONDARY_UNSUPPORTED 2u
+#define SECONDARY_TIMEOUT 3u
+#define SECONDARY_UNSTABLE 4u
+#define SECONDARY_BUSY 5u
+#define SECONDARY_CLEANUP_FAILED 6u
+
+#define APB_CLK 40000000
+
+#endif
