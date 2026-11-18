@@ -255,7 +255,11 @@ int read_otp(void)
 		case 0x154068:
 		case 0x164068:
 		case 0x174068:
+		case 0x1840ef:
+		case 0x1740ef:
 		case 0x1640ef:
+		case 0x1540ef:
+		case 0x1440ef:
 		case 0x144020:
 		case 0x154020:
 		case 0x164020:
@@ -308,6 +312,7 @@ int read_otp(void)
 			otp_block_size = 1024;
 			otp_block_count = 3;
 			break;
+		case 0x1620c2:
 		case 0x1720c2:
 		case 0x1820c2:
 			otp_interval = 512;
@@ -364,7 +369,7 @@ int read_otp(void)
 __attribute__((weak))
 void stub_flash_read(void* dest, uint32_t off, size_t len)
 {
-	memcpy(dest, (void*)off, len);
+	memcpy(dest, (void*)(FLASH_BASE + off), len);
 }
 
 __attribute__((weak))

@@ -16,6 +16,9 @@ mz_uint16 m_next[TDEFL_LZ_DICT_SIZE];
 __attribute__((section(".dram2")))
 #elif PLATFORM_OPL1000A2
 __attribute__((section(".dram")))
+#elif PLATFORM_MT7697
+__attribute__((section(".dram1")))
+mz_uint16 m_next[TDEFL_LZ_DICT_SIZE];
 #endif
 static tdefl_compressor deflator;
 #endif
@@ -42,7 +45,7 @@ int stub_miniz_deflate_raw(const volatile uint8_t* src, uint32_t len, uint8_t le
 	if(level < 1U || level > 10U) level = 5U;
 	miniz_output_t output = { put_buffer, put_ctx };
 	int flags = (int)tdefl_create_comp_flags_from_zip_params(level, -15, MZ_DEFAULT_STRATEGY);
-#if PLATFORM_RDA5981 || PLATFORM_ECR6600 || PLATFORM_TR6260
+#if PLATFORM_RDA5981 || PLATFORM_ECR6600 || PLATFORM_TR6260 || PLATFORM_MT7697
 	deflator.m_next = m_next;
 #endif
 	if(tdefl_init(&deflator, deflate_output, &output, flags) != TDEFL_STATUS_OKAY) return 0;

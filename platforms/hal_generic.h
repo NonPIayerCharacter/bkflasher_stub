@@ -32,10 +32,23 @@
 #include "TR6260/tr6260_hal.h"
 #elif PLATFORM_OPL1000A2
 #include "OPL1000A2/opl1000a2_hal.h"
+#elif PLATFORM_MT7697
+#include "MT7697/mt7697_hal.h"
+#endif
+
+#ifdef PLATFORM_NO_XIP
+#undef FLASH_BASE
+#define FLASH_BASE 0
 #endif
 
 #ifndef REG32
 #define REG32(a)				(*(volatile uint32_t *)(uintptr_t)(a))
+#endif
+#ifndef REG16
+#define REG16(a)				(*(volatile uint16_t *)(uintptr_t)(a))
+#endif
+#ifndef REG8
+#define REG8(a)					(*(volatile uint8_t *)(uintptr_t)(a))
 #endif
 #define READ_REG32(addr)		(*((volatile unsigned int *)(addr)))
 #define WRITE_REG32(REG, VAL)	((*(volatile unsigned int*)(REG)) = (unsigned int)(VAL))
@@ -231,7 +244,7 @@ static inline int range_is_within(uint32_t addr, uint32_t len, uint32_t base, ui
 	return len && addr >= base && addr - base < size && len <= size - (addr - base);
 }
 
-static inline int8_t uart_getc_inf(uint8_t* out)
+static inline void uart_getc_inf(uint8_t* out)
 {
 	while(!uart_getc_timeout(out, 0xFFFFFFFF));
 }

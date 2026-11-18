@@ -79,7 +79,7 @@ static void obk_send_flash_crc32(uint8_t type, uint32_t off, uint32_t len)
 	obk_data_reply(type, payload, sizeof(payload), OBK_STATUS_SUCCESS);
 }
 
-static void xmodem_send_memory(uint32_t addr, uint32_t len)
+static void xmodem_send_memory(uint32_t addr, uint32_t len, bool raw)
 {
 	uint8_t resp;
 	int use_crc = 1;
@@ -110,7 +110,8 @@ static void xmodem_send_memory(uint32_t addr, uint32_t len)
 		packet[0] = use_1k ? STX : SOH;
 		packet[1] = block;
 		packet[2] = (uint8_t)~block;
-		stub_flash_read(&packet[3], addr + off, chunk);
+		if(!raw) stub_flash_read(&packet[3], addr + off, chunk);
+		else memcpy(&packet[3], (void*)(addr + off), chunk);
 		memset(&packet[3 + chunk], 0xFF, block_size - chunk);
 		uint32_t pkt_len = 3U + block_size;
 		if(use_crc)
@@ -797,7 +798,7 @@ static void handle_obk_frame(void)
 			uint32_t len = load_le32(cmd_buf + 4);
 			if(off + len > flash_size) { obk_ack(type, OBK_STATUS_ADDR_ERROR); return; }
 			obk_ack(type, OBK_STATUS_SUCCESS);
-			xmodem_send_memory(FLASH_BASE + off, len);
+			xmodem_send_memory(off, len, false);
 			break;
 		}
 		case OBK_CMD_FLASH_XMODEM_UL_Z:
@@ -809,7 +810,11 @@ static void handle_obk_frame(void)
 			if(off + len > flash_size) { obk_ack(type, OBK_STATUS_ADDR_ERROR); return; }
 			uint8_t level = data_len >= 9U ? cmd_buf[8] : 5U;
 			obk_ack(type, OBK_STATUS_SUCCESS);
+#ifdef PLATFORM_NO_XIP
+			xmodem_send_compressed_memory(off, len, level);
+#else
 			xmodem_send_compressed_memory(FLASH_BASE + off, len, level);
+#endif
 #else
 			obk_ack(type, OBK_STATUS_NOT_SUPPORTED);
 #endif
@@ -835,7 +840,7 @@ static void handle_obk_frame(void)
 			uint32_t addr = load_le32(cmd_buf);
 			uint32_t len = load_le32(cmd_buf + 4);
 			obk_ack(type, OBK_STATUS_SUCCESS);
-			xmodem_send_memory(addr, len);
+			xmodem_send_memory(addr, len, true);
 			break;
 		}
 		case OBK_CMD_FLASH_CHIP_ERASE:

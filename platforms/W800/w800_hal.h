@@ -1,6 +1,10 @@
 #ifndef W800_HAL_H
 #define W800_HAL_H
 
+#include <stdint.h>
+#include <stddef.h>
+#include <stdbool.h>
+
 #define PLATFORM_SUPPORTS_OTP
 
 #define APB_CLK                    40000000U

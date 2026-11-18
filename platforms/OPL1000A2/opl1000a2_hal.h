@@ -7,7 +7,6 @@
 #include <stdbool.h>
 
 #define PLATFORM_NO_XIP
-#define FLASH_BASE 0xF000000 // fake
 #undef BUF_SIZE
 #define BUF_SIZE 0x8000
 

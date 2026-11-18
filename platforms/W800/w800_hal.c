@@ -1,6 +1,3 @@
-#include <stdint.h>
-#include <stddef.h>
-#include <string.h>
 #include "../hal_generic.h"
 
 static uint8_t crc_buf[sizeof(cmd_buf)] __attribute__((aligned(4)));
