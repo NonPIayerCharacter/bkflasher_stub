@@ -3,6 +3,9 @@
 static uint32_t gXtalFreq;
 static uint16_t fraction_L_mapping[] = { 0x00, 0x10, 0x44, 0x92, 0x29, 0xaa, 0xb6, 0xdb, 0xad, 0xff, 0xff };
 static uint16_t fraction_M_mapping[] = { 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x03 };
+static const uint32_t sha256_iv[8] = { 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
+uint8_t crypto_input[256] __attribute__((aligned(16)));
+uint8_t crypto_output[64] __attribute__((aligned(16)));
 
 void uart_putc(uint8_t b)
 {
@@ -405,6 +408,79 @@ int read_efuse(void)
 		*data++ = READ_REG32(SYS_EFUSE_RDATA3);
 	}
 	return EFUSE_SIZE;
+}
+
+int sha256_memory_hardware(uint32_t addr, uint32_t len)
+{
+	const uint8_t* src = (const uint8_t*)addr;
+	uint32_t state[8];
+	uint32_t remaining = len;
+	uint32_t i;
+	uint32_t final_stage = 0;
+	uint64_t bit_length = (uint64_t)len * 8ULL;
+
+	memcpy(state, sha256_iv, sizeof(state));
+
+	while(1)
+	{
+		if(remaining >= 64)
+		{
+			memcpy(crypto_input, src, 64);
+			memset(crypto_input + 64, 0, 64);
+			src += 64;
+			remaining -= 64;
+		}
+		else if(final_stage == 0)
+		{
+			memset(crypto_input, 0, sizeof(crypto_input));
+			if(remaining != 0) memcpy(crypto_input, src, remaining);
+			crypto_input[remaining] = 0x80;
+
+			if(remaining < 56)
+			{
+				for(i = 0; i < 8; ++i) crypto_input[56 + i] = (uint8_t)(bit_length >> (56 - 8 * i));
+				final_stage = 2;
+			}
+			else final_stage = 1;
+			remaining = 0;
+		}
+		else if(final_stage == 1)
+		{
+			memset(crypto_input, 0, sizeof(crypto_input));
+			for(i = 0; i < 8; ++i) crypto_input[56 + i] = (uint8_t)(bit_length >> (56 - 8 * i));
+			final_stage = 2;
+		}
+		else break;
+
+		memset(crypto_output, 0, sizeof(crypto_output));
+		WRITE_REG32(CRYPTO_ENGINE_CTRL, SHA256_ENGINE_CFG);
+		WRITE_REG32(CRYPTO_SOURCE_ADDR, crypto_input);
+		WRITE_REG32(CRYPTO_DEST_ADDR, crypto_output);
+		WRITE_REG32(CRYPTO_TOTAL_LEN, 16);
+
+		for(i = 0; i < 8; ++i) WRITE_REG32(SHA256_IV_BASE + i * 0x10, state[i]);
+
+		WRITE_REG32(SHA256_MODE, 0);
+		OR_REG32(SHA256_MODE, CRYPTO_START_BIT);
+		OR_REG32(CRYPTO_ENGINE_CTRL, CRYPTO_START_BIT);
+
+		delay_loops(8);
+
+		for(i = 0; i < 8; ++i)
+		{
+			uint32_t raw;
+			memcpy(&raw, crypto_output + i * 4, sizeof(raw));
+			state[i] = ((raw & 0x000000ff) << 24) | ((raw & 0x0000ff00) << 8) | ((raw & 0x00ff0000) >> 8) | ((raw & 0xff000000) >> 24);
+		}
+
+		REG32(SHA256_MODE) &= ~CRYPTO_START_BIT;
+		REG32(CRYPTO_ENGINE_CTRL) &= ~CRYPTO_START_BIT;
+
+		if(final_stage == 2) break;
+	}
+
+	memcpy(cmd_buf, crypto_output, 32);
+	return 1;
 }
 
 void enable_plls(void)
