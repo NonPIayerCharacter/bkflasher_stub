@@ -282,7 +282,8 @@ void flash_init(void)
 uint8_t get_chip_data(void)
 {
 	WRITE_REG32(cmd_buf, 0xDDD6DED1); // MT76x7
-	return 4;
+	WRITE_REG32(cmd_buf + 4, READ_REG32(0x830081C0U));
+	return 8;
 }
 
 #ifdef PLATFORM_SUPPORTS_OTP
