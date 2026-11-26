@@ -20,7 +20,7 @@ jobs:
       - name: Install arm-none-eabi-gcc
         uses: carlosperate/arm-none-eabi-gcc-action@v1
         with:
-          release: latest
+          release: 15.3.Rel2
           path-env-var: ARM_NONE_EABI_GCC_PATH
 
       - name: Cache toolchain
@@ -38,6 +38,11 @@ jobs:
       - name: Run build script
         run: |
           ./build_all.sh
+
+      - name: Optimize artifact compression
+        run: |
+          python -m pip install zopfli==0.4.3
+          python tools/repack_stubs.py build/all
 
       - name: Save build assets
         uses: actions/upload-artifact@v6

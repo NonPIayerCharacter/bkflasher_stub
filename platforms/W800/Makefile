@@ -1,8 +1,8 @@
 TOOLCHAIN ?= platforms/W800/csky/bin/
 CROSS_COMPILE ?= csky-abiv2-elf-
 
-CFLAGS := -mcpu=ck804ef -mhard-float -Os -std=gnu99 -ffunction-sections -fdata-sections -fno-builtin -nostdlib -nodefaultlibs -nostartfiles
-LDFLAGS := -mcpu=ck804ef -mhard-float -nostdlib -nodefaultlibs -nostartfiles -Wl,--gc-sections -Wl,-Tplatforms/$(PLATFORM)/stub.ld -Wl,-Map=$(BUILD_DIR)/$(PLATFORM)_stub.map
+CFLAGS := -mcpu=ck804ef -mhard-float -flto -Os -std=gnu99 -ffunction-sections -fdata-sections -fno-builtin -nostdlib -nodefaultlibs -nostartfiles
+LDFLAGS := -mcpu=ck804ef -mhard-float -flto -nostdlib -nodefaultlibs -nostartfiles -Wl,--gc-sections -Wl,-Tplatforms/$(PLATFORM)/stub.ld -Wl,-Map=$(BUILD_DIR)/$(PLATFORM)_stub.map
 
 IMG := $(BUILD_DIR)/$(PLATFORM)_Stub.img
 

@@ -6,7 +6,6 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-#include "tlsf/tlsf.h"
 #include "littlefs/lfs.h"
 #include "rtl_kv/kv.h"
 

@@ -151,7 +151,7 @@ void Default_Handler(void)
 	while(1);
 }
 
-const void* __Vectors[240] __attribute__((section(".vectors"))) = {
+const void* __Vectors[] __attribute__((section(".vectors"))) = {
 	(void*)(&__StackTop),                     /* (0x00)Top of Stack                   */
 	Reset_Handler,                            /* (0x04)IRQ -15  Reset Handler         */
 	Default_Handler,                          /* (0x08)IRQ -14  NMI Handler           */

@@ -1,4 +1,5 @@
 #include "../hal_generic.h"
+#include "../rtl_pll.h"
 
 #define UART LOGUART_DEV
 const uint16_t Flash_Speed = CLKDIV(2);
@@ -8,8 +9,9 @@ const uint16_t Flash_Speed = CLKDIV(2);
 static bool kv_init = false;
 const uint32_t LFS_FLASH_BASE_ADDR = 0x083E0000;
 const uint32_t LFS_FLASH_SIZE = 0x20000;
-static uint8_t tlsf_area[0x2000];
-static tlsf_t memalloc;
+static uint8_t lfs_read_cache[RTL_KV_CACHE_SIZE] __attribute__((aligned(8)));
+static uint8_t lfs_prog_cache[RTL_KV_CACHE_SIZE] __attribute__((aligned(8)));
+static uint8_t lfs_lookahead[8] __attribute__((aligned(8)));
 lfs_t g_lfs = { 0 };
 int lfs_nor_read(const struct lfs_config* c, lfs_block_t block, lfs_off_t off, void* buffer, lfs_size_t size);
 
@@ -29,7 +31,10 @@ struct lfs_config g_nor_lfs_cfg = {
 	.prog_size = 1,
 	.block_size = 4096,
 	.lookahead_size = 8,
-	.cache_size = 256,
+	.cache_size = sizeof(lfs_read_cache),
+	.read_buffer = lfs_read_cache,
+	.prog_buffer = lfs_prog_cache,
+	.lookahead_buffer = lfs_lookahead,
 	.block_cycles = 100,
 };
 
@@ -107,27 +112,11 @@ int lfs_diskio_sync(const struct lfs_config* c)
 	return LFS_ERR_OK;
 }
 
-void* malloc(size_t size)
-{
-	return tlsf_malloc(memalloc, size);
-}
-
-void* realloc(void* ptr, size_t size)
-{
-	return tlsf_realloc(memalloc, ptr, size);
-}
-
-void free(void* ptr)
-{
-	tlsf_free(memalloc, ptr);
-}
-
 void stub_kv_init(void)
 {
 	if(!kv_init)
 	{
 		kv_init = true;
-		memalloc = tlsf_create_with_pool((void*)&tlsf_area, sizeof(tlsf_area));
 		g_nor_lfs_cfg.block_count = LFS_FLASH_SIZE / 4096;
 		int ret = lfs_mount(&g_lfs, &g_nor_lfs_cfg);
 		if(ret == LFS_ERR_NOTFMT)
@@ -350,7 +339,7 @@ void PLL_ClkSet(uint32_t PllClk)
 	FoN = Temp / (XtalClk >> 3);
 
 	Temp = Temp - FoN * (XtalClk >> 3);
-	FoF = (uint32_t)(((uint64_t)Temp << 13) / (XtalClk >> 3));
+	FoF = rtl_pll_fraction(Temp, XtalClk >> 3);
 
 	PLL->PLL_CTRL0 &= ~PLL_BIT_REG_CK_EN;
 

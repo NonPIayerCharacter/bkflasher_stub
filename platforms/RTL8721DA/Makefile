@@ -4,10 +4,12 @@ CFLAGS := -march=armv8.1-m.main+dsp -flto -mthumb -Os -std=gnu2x -mthumb -mlittl
 LDFLAGS := -march=armv8.1-m.main+dsp -flto -mthumb -Wl,--gc-sections -Wl,-Tplatforms/$(PLATFORM)/stub.ld -Wl,-Map=$(BUILD_DIR)/$(PLATFORM)_stub.map -Wl,--cref -Wl,--entry=Reset_Handler -nostartfiles -ffreestanding
 
 SRCS_C += platforms/RTL8721DA/rtl8721da_hal.c
-SRCS_C += third_party/tlsf/tlsf.c
+ifeq ($(filter -DDISABLE_KV -DDISABLE_KV=%,$(CLIFLAGS)),)
+CFLAGS += -DLFS_NO_MALLOC
 SRCS_C += third_party/rtl_kv/kv.c
 SRCS_C += third_party/littlefs/lfs.c
 SRCS_C += third_party/littlefs/lfs_util.c
+endif
 
 $(FINAL): $(BIN)
 	@echo "Producing stub $(FINAL)"
