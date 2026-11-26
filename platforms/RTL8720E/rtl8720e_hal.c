@@ -1,5 +1,4 @@
 #include "../hal_generic.h"
-#include "../rtl_pll.h"
 
 #define UART LOGUART_DEV
 const uint16_t Flash_Speed = CLKDIV(2);
