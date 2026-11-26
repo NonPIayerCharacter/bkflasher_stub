@@ -20,7 +20,7 @@ jobs:
       - name: Install arm-none-eabi-gcc
         uses: carlosperate/arm-none-eabi-gcc-action@v1
         with:
-          release: 15.3.Rel2
+          release: latest
           path-env-var: ARM_NONE_EABI_GCC_PATH
 
       - name: Cache toolchain

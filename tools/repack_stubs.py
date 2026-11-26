@@ -11,10 +11,12 @@ def main():
     parser.add_argument("directory", type=Path)
     args = parser.parse_args()
 
-    for directory in (args.directory, args.directory / "minimal"):
-        images = sorted(directory.glob("*_Stub.bin"))
-        if not images:
-            raise SystemExit(f"No stub images in {directory}")
+    full = sorted(args.directory.glob("*_Stub.bin"))
+    minimal = sorted((args.directory / "minimal").glob("*_Stub.bin"))
+    if not full or [image.name for image in full] != [image.name for image in minimal]:
+        raise SystemExit("Full and minimal stub sets must be nonempty and match")
+
+    for images in (full, minimal):
         for image in images:
             original = image.read_bytes()
             payload = gzip.decompress(original)
