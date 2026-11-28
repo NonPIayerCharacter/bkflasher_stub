@@ -120,7 +120,9 @@ uint8_t get_chip_data(void)
 
 int read_otp(void)
 {
+	flash_cache_disable();
 	hal_flash_security_area_read(0, 0x400, (uint8_t*)&cmd_buf);
+	flash_cache_init(0);
 	return 0x400;
 }
 

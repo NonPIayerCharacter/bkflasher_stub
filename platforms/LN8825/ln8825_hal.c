@@ -118,10 +118,12 @@ uint8_t get_chip_data(void)
 
 int read_otp(void)
 {
+	flash_cache_disable();
 	for(int i = 0; i < 0x400; i += 16)
 	{
 		FLASH_SecurityAreaRead(i, 16, (uint8_t*)&cmd_buf[i]);
 	}
+	flash_cache_init(0);
 	return 0x400;
 }
 
