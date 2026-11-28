@@ -99,13 +99,14 @@ uint16_t crc16_xmodem(const uint8_t* data, uint32_t len)
 
 int read_efuse(void)
 {
+	uint32_t* buf = (uint32_t*)cmd_buf;
 	for(int i = 0; i < 8; ++i)
 	{
-		cmd_buf[i] = HAL_EFUSE_ReadShadowReg(EFUSE, i);
+		buf[i] = HAL_EFUSE_ReadShadowReg(EFUSE, i);
 	}
 	for(int i = 8; i < 16; ++i)
 	{
-		cmd_buf[i] = HAL_EFUSE_ReadCorrectReg(EFUSE, i - 8);
+		buf[i] = HAL_EFUSE_ReadCorrectReg(EFUSE, i - 8);
 	}
 	return 64;
 }
